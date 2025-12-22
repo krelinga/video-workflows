@@ -73,7 +73,7 @@ func Workflow(ctx workflow.Context, params Params) (State, error) {
 
 	// TODO: Move each file to its final location based on its category.
 
-	// TODO: Start transcoding jobs for main title.
+	// TODO: Transcode main title.
 
 	return state, nil
 }
