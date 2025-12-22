@@ -17,19 +17,29 @@ import (
 	"net/url"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/oapi-codegen/runtime"
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Error defines model for Error.
 type Error struct {
-	Code    int32   `json:"code"`
-	Details *string `json:"details,omitempty"`
-	Message string  `json:"message"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
+
+// CreateDiscJSONBody defines parameters for CreateDisc.
+type CreateDiscJSONBody struct {
+	// Path Path to the directory containing the disc contents
+	Path string `json:"path"`
+
+	// Uuid Client-provided UUID for the disc workflow
+	Uuid openapi_types.UUID `json:"uuid"`
+}
+
+// CreateDiscJSONRequestBody defines body for CreateDisc for application/json ContentType.
+type CreateDiscJSONRequestBody CreateDiscJSONBody
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -104,18 +114,14 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// GetHealth request
-	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CreateDiscWithBody request with any body
+	CreateDiscWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetHello request
-	GetHello(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetHelloName request
-	GetHelloName(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateDisc(ctx context.Context, body CreateDiscJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetHealthRequest(c.Server)
+func (c *Client) CreateDiscWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDiscRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +132,8 @@ func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetHello(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetHelloRequest(c.Server)
+func (c *Client) CreateDisc(ctx context.Context, body CreateDiscJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDiscRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -138,20 +144,19 @@ func (c *Client) GetHello(ctx context.Context, reqEditors ...RequestEditorFn) (*
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetHelloName(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetHelloNameRequest(c.Server, name)
+// NewCreateDiscRequest calls the generic CreateDisc builder with application/json body
+func NewCreateDiscRequest(server string, body CreateDiscJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDiscRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewGetHealthRequest generates requests for GetHealth
-func NewGetHealthRequest(server string) (*http.Request, error) {
+// NewCreateDiscRequestWithBody generates requests for CreateDisc with any type of body
+func NewCreateDiscRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -159,7 +164,7 @@ func NewGetHealthRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/health")
+	operationPath := fmt.Sprintf("/disc")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -169,71 +174,12 @@ func NewGetHealthRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
 
-	return req, nil
-}
-
-// NewGetHelloRequest generates requests for GetHello
-func NewGetHelloRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/hello")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetHelloNameRequest generates requests for GetHelloName
-func NewGetHelloNameRequest(server string, name string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/hello/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -281,80 +227,27 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// GetHealthWithResponse request
-	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error)
+	// CreateDiscWithBodyWithResponse request with any body
+	CreateDiscWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDiscResponse, error)
 
-	// GetHelloWithResponse request
-	GetHelloWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHelloResponse, error)
-
-	// GetHelloNameWithResponse request
-	GetHelloNameWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetHelloNameResponse, error)
+	CreateDiscWithResponse(ctx context.Context, body CreateDiscJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDiscResponse, error)
 }
 
-type GetHealthResponse struct {
+type CreateDiscResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Status  *string `json:"status,omitempty"`
-		Version *string `json:"version,omitempty"`
-	}
-}
-
-// Status returns HTTPResponse.Status
-func (r GetHealthResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetHealthResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetHelloResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *struct {
-		Message   *string    `json:"message,omitempty"`
-		Timestamp *time.Time `json:"timestamp,omitempty"`
-	}
-	JSON500 *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r GetHelloResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetHelloResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetHelloNameResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *struct {
-		Message   *string    `json:"message,omitempty"`
-		Timestamp *time.Time `json:"timestamp,omitempty"`
+	JSON201      *struct {
+		Path   *string             `json:"path,omitempty"`
+		Status *string             `json:"status,omitempty"`
+		Uuid   *openapi_types.UUID `json:"uuid,omitempty"`
 	}
 	JSON400 *Error
+	JSON409 *Error
 	JSON500 *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r GetHelloNameResponse) Status() string {
+func (r CreateDiscResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -362,128 +255,54 @@ func (r GetHelloNameResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetHelloNameResponse) StatusCode() int {
+func (r CreateDiscResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-// GetHealthWithResponse request returning *GetHealthResponse
-func (c *ClientWithResponses) GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error) {
-	rsp, err := c.GetHealth(ctx, reqEditors...)
+// CreateDiscWithBodyWithResponse request with arbitrary body returning *CreateDiscResponse
+func (c *ClientWithResponses) CreateDiscWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDiscResponse, error) {
+	rsp, err := c.CreateDiscWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetHealthResponse(rsp)
+	return ParseCreateDiscResponse(rsp)
 }
 
-// GetHelloWithResponse request returning *GetHelloResponse
-func (c *ClientWithResponses) GetHelloWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHelloResponse, error) {
-	rsp, err := c.GetHello(ctx, reqEditors...)
+func (c *ClientWithResponses) CreateDiscWithResponse(ctx context.Context, body CreateDiscJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDiscResponse, error) {
+	rsp, err := c.CreateDisc(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetHelloResponse(rsp)
+	return ParseCreateDiscResponse(rsp)
 }
 
-// GetHelloNameWithResponse request returning *GetHelloNameResponse
-func (c *ClientWithResponses) GetHelloNameWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetHelloNameResponse, error) {
-	rsp, err := c.GetHelloName(ctx, name, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetHelloNameResponse(rsp)
-}
-
-// ParseGetHealthResponse parses an HTTP response from a GetHealthWithResponse call
-func ParseGetHealthResponse(rsp *http.Response) (*GetHealthResponse, error) {
+// ParseCreateDiscResponse parses an HTTP response from a CreateDiscWithResponse call
+func ParseCreateDiscResponse(rsp *http.Response) (*CreateDiscResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetHealthResponse{
+	response := &CreateDiscResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest struct {
-			Status  *string `json:"status,omitempty"`
-			Version *string `json:"version,omitempty"`
+			Path   *string             `json:"path,omitempty"`
+			Status *string             `json:"status,omitempty"`
+			Uuid   *openapi_types.UUID `json:"uuid,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetHelloResponse parses an HTTP response from a GetHelloWithResponse call
-func ParseGetHelloResponse(rsp *http.Response) (*GetHelloResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetHelloResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Message   *string    `json:"message,omitempty"`
-			Timestamp *time.Time `json:"timestamp,omitempty"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetHelloNameResponse parses an HTTP response from a GetHelloNameWithResponse call
-func ParseGetHelloNameResponse(rsp *http.Response) (*GetHelloNameResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetHelloNameResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Message   *string    `json:"message,omitempty"`
-			Timestamp *time.Time `json:"timestamp,omitempty"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error
@@ -491,6 +310,13 @@ func ParseGetHelloNameResponse(rsp *http.Response) (*GetHelloNameResponse, error
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
@@ -506,15 +332,9 @@ func ParseGetHelloNameResponse(rsp *http.Response) (*GetHelloNameResponse, error
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Health check endpoint
-	// (GET /health)
-	GetHealth(w http.ResponseWriter, r *http.Request)
-	// Get a hello world message
-	// (GET /hello)
-	GetHello(w http.ResponseWriter, r *http.Request)
-	// Get a personalized hello message
-	// (GET /hello/{name})
-	GetHelloName(w http.ResponseWriter, r *http.Request, name string)
+	// Create a disc workflow
+	// (POST /disc)
+	CreateDisc(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -526,50 +346,11 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// GetHealth operation middleware
-func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
+// CreateDisc operation middleware
+func (siw *ServerInterfaceWrapper) CreateDisc(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetHealth(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetHello operation middleware
-func (siw *ServerInterfaceWrapper) GetHello(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetHello(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetHelloName operation middleware
-func (siw *ServerInterfaceWrapper) GetHelloName(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetHelloName(w, r, name)
+		siw.Handler.CreateDisc(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -699,92 +480,53 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	m.HandleFunc("GET "+options.BaseURL+"/health", wrapper.GetHealth)
-	m.HandleFunc("GET "+options.BaseURL+"/hello", wrapper.GetHello)
-	m.HandleFunc("GET "+options.BaseURL+"/hello/{name}", wrapper.GetHelloName)
+	m.HandleFunc("POST "+options.BaseURL+"/disc", wrapper.CreateDisc)
 
 	return m
 }
 
-type GetHealthRequestObject struct {
+type CreateDiscRequestObject struct {
+	Body *CreateDiscJSONRequestBody
 }
 
-type GetHealthResponseObject interface {
-	VisitGetHealthResponse(w http.ResponseWriter) error
+type CreateDiscResponseObject interface {
+	VisitCreateDiscResponse(w http.ResponseWriter) error
 }
 
-type GetHealth200JSONResponse struct {
-	Status  *string `json:"status,omitempty"`
-	Version *string `json:"version,omitempty"`
+type CreateDisc201JSONResponse struct {
+	Path   *string             `json:"path,omitempty"`
+	Status *string             `json:"status,omitempty"`
+	Uuid   *openapi_types.UUID `json:"uuid,omitempty"`
 }
 
-func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseWriter) error {
+func (response CreateDisc201JSONResponse) VisitCreateDiscResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.WriteHeader(201)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetHelloRequestObject struct {
-}
+type CreateDisc400JSONResponse Error
 
-type GetHelloResponseObject interface {
-	VisitGetHelloResponse(w http.ResponseWriter) error
-}
-
-type GetHello200JSONResponse struct {
-	Message   *string    `json:"message,omitempty"`
-	Timestamp *time.Time `json:"timestamp,omitempty"`
-}
-
-func (response GetHello200JSONResponse) VisitGetHelloResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetHello500JSONResponse Error
-
-func (response GetHello500JSONResponse) VisitGetHelloResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetHelloNameRequestObject struct {
-	Name string `json:"name"`
-}
-
-type GetHelloNameResponseObject interface {
-	VisitGetHelloNameResponse(w http.ResponseWriter) error
-}
-
-type GetHelloName200JSONResponse struct {
-	Message   *string    `json:"message,omitempty"`
-	Timestamp *time.Time `json:"timestamp,omitempty"`
-}
-
-func (response GetHelloName200JSONResponse) VisitGetHelloNameResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetHelloName400JSONResponse Error
-
-func (response GetHelloName400JSONResponse) VisitGetHelloNameResponse(w http.ResponseWriter) error {
+func (response CreateDisc400JSONResponse) VisitCreateDiscResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetHelloName500JSONResponse Error
+type CreateDisc409JSONResponse Error
 
-func (response GetHelloName500JSONResponse) VisitGetHelloNameResponse(w http.ResponseWriter) error {
+func (response CreateDisc409JSONResponse) VisitCreateDiscResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateDisc500JSONResponse Error
+
+func (response CreateDisc500JSONResponse) VisitCreateDiscResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -793,15 +535,9 @@ func (response GetHelloName500JSONResponse) VisitGetHelloNameResponse(w http.Res
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Health check endpoint
-	// (GET /health)
-	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
-	// Get a hello world message
-	// (GET /hello)
-	GetHello(ctx context.Context, request GetHelloRequestObject) (GetHelloResponseObject, error)
-	// Get a personalized hello message
-	// (GET /hello/{name})
-	GetHelloName(ctx context.Context, request GetHelloNameRequestObject) (GetHelloNameResponseObject, error)
+	// Create a disc workflow
+	// (POST /disc)
+	CreateDisc(ctx context.Context, request CreateDiscRequestObject) (CreateDiscResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -833,73 +569,30 @@ type strictHandler struct {
 	options     StrictHTTPServerOptions
 }
 
-// GetHealth operation middleware
-func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
-	var request GetHealthRequestObject
+// CreateDisc operation middleware
+func (sh *strictHandler) CreateDisc(w http.ResponseWriter, r *http.Request) {
+	var request CreateDiscRequestObject
+
+	var body CreateDiscJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetHealth(ctx, request.(GetHealthRequestObject))
+		return sh.ssi.CreateDisc(ctx, request.(CreateDiscRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetHealth")
+		handler = middleware(handler, "CreateDisc")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetHealthResponseObject); ok {
-		if err := validResponse.VisitGetHealthResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetHello operation middleware
-func (sh *strictHandler) GetHello(w http.ResponseWriter, r *http.Request) {
-	var request GetHelloRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetHello(ctx, request.(GetHelloRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetHello")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetHelloResponseObject); ok {
-		if err := validResponse.VisitGetHelloResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetHelloName operation middleware
-func (sh *strictHandler) GetHelloName(w http.ResponseWriter, r *http.Request, name string) {
-	var request GetHelloNameRequestObject
-
-	request.Name = name
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetHelloName(ctx, request.(GetHelloNameRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetHelloName")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetHelloNameResponseObject); ok {
-		if err := validResponse.VisitGetHelloNameResponse(w); err != nil {
+	} else if validResponse, ok := response.(CreateDiscResponseObject); ok {
+		if err := validResponse.VisitCreateDiscResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -910,19 +603,19 @@ func (sh *strictHandler) GetHelloName(w http.ResponseWriter, r *http.Request, na
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"VntnunHYr7AU5ma2+TcAAP//WTTqnNUHAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

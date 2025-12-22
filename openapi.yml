@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: Hello World Service
-  description: A simple hello world API service
+  title: Disc Workflow Service
+  description: API service for managing disc workflows
   version: 1.0.0
   contact:
     name: API Support
@@ -14,98 +14,68 @@ servers:
     description: Production server
 
 paths:
-  /hello:
-    get:
-      summary: Get a hello world message
-      description: Returns a simple hello world greeting
-      operationId: getHello
+  /disc:
+    post:
+      summary: Create a disc workflow
+      description: Creates a new disc workflow with a client-provided UUID and directory path
+      operationId: createDisc
       tags:
-        - greeting
+        - disc
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - uuid
+                - path
+              properties:
+                uuid:
+                  type: string
+                  format: uuid
+                  description: Client-provided UUID for the disc workflow
+                  example: 550e8400-e29b-41d4-a716-446655440000
+                path:
+                  type: string
+                  description: Path to the directory containing the disc contents
+                  example: /mnt/discs/disc001
       responses:
-        '200':
-          description: Successful response
+        '201':
+          description: Disc workflow created successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  message:
+                  uuid:
                     type: string
-                    example: Hello, World!
-                  timestamp:
+                    format: uuid
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  path:
                     type: string
-                    format: date-time
-                    example: '2025-12-22T10:00:00Z'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /hello/{name}:
-    get:
-      summary: Get a personalized hello message
-      description: Returns a personalized greeting
-      operationId: getHelloName
-      tags:
-        - greeting
-      parameters:
-        - name: name
-          in: path
-          description: Name of the person to greet
-          required: true
-          schema:
-            type: string
-            example: John
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Hello, John!
-                  timestamp:
-                    type: string
-                    format: date-time
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /health:
-    get:
-      summary: Health check endpoint
-      description: Returns the health status of the service
-      operationId: getHealth
-      tags:
-        - system
-      responses:
-        '200':
-          description: Service is healthy
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
+                    example: /mnt/discs/disc001
                   status:
                     type: string
-                    example: healthy
-                  version:
-                    type: string
-                    example: 1.0.0
+                    example: created
+        '400':
+          description: Bad request - the specified path does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - the given UUID is already in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
   schemas:
@@ -116,18 +86,12 @@ components:
         - message
       properties:
         code:
-          type: integer
-          format: int32
-          example: 500
+          type: string
+          example: INTERNAL_ERROR
         message:
           type: string
           example: An error occurred
-        details:
-          type: string
-          example: Additional error details
 
 tags:
-  - name: greeting
-    description: Hello world greeting endpoints
-  - name: system
-    description: System and health check endpoints
+  - name: disc
+    description: Disc workflow management endpoints
