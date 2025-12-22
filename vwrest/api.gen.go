@@ -23,14 +23,8 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Error defines model for Error.
-type Error struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
-
-// CreateDiscJSONBody defines parameters for CreateDisc.
-type CreateDiscJSONBody struct {
+// CreateDiscRequest defines model for CreateDiscRequest.
+type CreateDiscRequest struct {
 	// Path Path to the directory containing the disc contents
 	Path string `json:"path"`
 
@@ -38,8 +32,21 @@ type CreateDiscJSONBody struct {
 	Uuid openapi_types.UUID `json:"uuid"`
 }
 
+// DiscWorkflow defines model for DiscWorkflow.
+type DiscWorkflow struct {
+	Path   string             `json:"path"`
+	Status string             `json:"status"`
+	Uuid   openapi_types.UUID `json:"uuid"`
+}
+
+// Error defines model for Error.
+type Error struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
 // CreateDiscJSONRequestBody defines body for CreateDisc for application/json ContentType.
-type CreateDiscJSONRequestBody CreateDiscJSONBody
+type CreateDiscJSONRequestBody = CreateDiscRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -236,14 +243,10 @@ type ClientWithResponsesInterface interface {
 type CreateDiscResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *struct {
-		Path   *string             `json:"path,omitempty"`
-		Status *string             `json:"status,omitempty"`
-		Uuid   *openapi_types.UUID `json:"uuid,omitempty"`
-	}
-	JSON400 *Error
-	JSON409 *Error
-	JSON500 *Error
+	JSON201      *DiscWorkflow
+	JSON400      *Error
+	JSON409      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -294,11 +297,7 @@ func ParseCreateDiscResponse(rsp *http.Response) (*CreateDiscResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest struct {
-			Path   *string             `json:"path,omitempty"`
-			Status *string             `json:"status,omitempty"`
-			Uuid   *openapi_types.UUID `json:"uuid,omitempty"`
-		}
+		var dest DiscWorkflow
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -493,11 +492,7 @@ type CreateDiscResponseObject interface {
 	VisitCreateDiscResponse(w http.ResponseWriter) error
 }
 
-type CreateDisc201JSONResponse struct {
-	Path   *string             `json:"path,omitempty"`
-	Status *string             `json:"status,omitempty"`
-	Uuid   *openapi_types.UUID `json:"uuid,omitempty"`
-}
+type CreateDisc201JSONResponse DiscWorkflow
 
 func (response CreateDisc201JSONResponse) VisitCreateDiscResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -603,19 +598,19 @@ func (sh *strictHandler) CreateDisc(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/7xVTW/jNhD9KwTbo2zRu3Ka1ambj4OBIA2cBj0URsGQI5upRLKckR0j8H8vSMl2HBsp",
-	"AjR7SWSSM+/Nm68XrlzjnQVLyMsXjmoBjUyf1yG4ED98cB4CGUjHymmI/+FZNr4GXvLJ7e/X09vvN39d",
-	"T6e/TXnGae3jOVIwds43GW8AUc7fmH23DCIEc0q1IYA+ttxkPMA/rYmX5Z8d9N7bbPfePT6BIr6JBsZW",
-	"ruNpSSpKmI00dXTbeu8C/dpzGCrX8Ixb2SQ6dxN23z2IlDWgCsaTcba/RAhLo4BVLrBGWjk3ds60QcVW",
-	"Lvxd1W6FMQJDKbqrePFHf8HuO1ue8SUE7HyOhmIoIpTzYKU3vORfh2L4lWfcS1oksfPoP+XAYQrlkNZl",
-	"AEmATDILq0MubGVowSRTtQFLAx/c0mjQ7OFhcsWk1UybAIpcWLOIxhONIKPjid65jlHwLgmAdOH0eist",
-	"2MRHel8blczyJ4yktjV0XDkJ5yiGO0kLRo7RAl5xStkzNkrcXaBiPWxUeV9FeWMpqYTprxCjUwXYtkaf",
-	"kO+UNjG9O8itmgeQ47GA80KIAXz59jgoRroYyF9GZ4OiODsbj4tCCCF4xisXGkm87MD/q7b7R0mj04W9",
-	"f02hhXSA3lnsxP0iRv9Daj6qK5KkFg8tVaoc/V4aPkHLE4IdJvvqoDt6kgxbpQCxaut6HRkWQnxIxp8D",
-	"VLzkP+X7MZr3MzTvBugJKhdSs76l2CAVG3pQpjKgUzMy7QCZdcTg2SB1vL59Pq9LZ6vaqC2puVmC7ZrC",
-	"IJN1AKnXzFjWIkRO4x+h1cQSBCvrNH4hdCsjZRzbppFhvZtVTB71LMk5xuZKU3SWvHdu4unbaXDjlKyZ",
-	"hiXUzjdgqYfkGW9DXB8LIl/meR3fLRxSeS7O4wA/mmjB6VbFH6c8YJnn0pvh6yW0me24vrxbtmnvQCIH",
-	"VntnunHYr7AU5ma2+TcAAP//WTTqnNUHAAA=",
+	"H4sIAAAAAAAC/7xVwW7jNhD9FYLtUbboXTnN6tTdJAcDi+3CadBDYRQMObKZSiTDGdkxAv97QUp2othN",
+	"USCbSyKL5Mzjm/eeHrlyjXcWLCEvHzmqFTQyPV4EkASXBtUc7ltAii99cB4CGUhbvKRV/K8BVTCejLO8",
+	"5N8lrRg5Ritg2gRQ5MKWKWdJGmvssl9Ald6lzhmHB9n4GnjJ88ZSHpcx/RViwjNOWx/XkIKxS77LeNsa",
+	"fdz6ojZgaeSDWxsNmt3czC5Z5cJTy40Lf1e12wxaTqcCzgshRvDh0+2omOhiJH+ZnI2K4uxsOi0KIYTg",
+	"Ga9caCTxsmt+BGqX8QD3rQmgefnnflPiaHHY7G7vQFG8QWT2jz2af6X2//KCJKnF4UmVJqlfo/EduThg",
+	"PEXKVQguHLOhnIYhzNm336/m3z5//etqPv9tfupqDSDK5Ytjny2D2II5pdoQ4L+hp9ZP1Y5BxwPGVq7D",
+	"aUmq5BRopKlj2dZ7F+jXHsNYuYZn3Momwfk+Y9fdhgh5KOa4iBDWRkHScCOtXEb/DIQczUOG0u2ipNhe",
+	"U+y6O8szvoaAXc3JWIxFbOU8WOkNL/nHsRh/7IeTyE7ySjNwnelfeCypCZlkFjZDLGxjaMUkU6dsKK1+",
+	"Fge9FOKQZSw804fS8Ra8GwIgfXF6u6cWbMIjva+NSsfyO4yg9sEVn34OUPGS/5Q/JVvex1p+nGm74bwp",
+	"tJBeoHcWO/F9EJM3AzAwfeo9JPdyQGdvXIatUoBYtXW9jcMrhHgzRJ3jTkD5IjXrZ8BGKUDRgzKVAZ2m",
+	"x7QDZNYRgweD1OH69ONxXThb1UbtQS3NGmynMINM1gGk3jJjWYsQMU3fg6uZJQhW1smvELqMSVGCbdPI",
+	"sD2Im8mj7xDJJcakSbZbpOpdmfj2pfu+OiVrpmENtfMNWOpb8oy3IebNisiXeV7HfSuHVJ6L8+j4o690",
+	"cLpV8cepCljmufRm/Dy1dosD1sdXZZuCChI4sNo7033i+8xL19wtdv8EAAD//8rdmMp7CAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

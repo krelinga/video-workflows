@@ -26,38 +26,14 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - uuid
-                - path
-              properties:
-                uuid:
-                  type: string
-                  format: uuid
-                  description: Client-provided UUID for the disc workflow
-                  example: 550e8400-e29b-41d4-a716-446655440000
-                path:
-                  type: string
-                  description: Path to the directory containing the disc contents
-                  example: /mnt/discs/disc001
+              $ref: '#/components/schemas/CreateDiscRequest'
       responses:
         '201':
           description: Disc workflow created successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  uuid:
-                    type: string
-                    format: uuid
-                    example: 550e8400-e29b-41d4-a716-446655440000
-                  path:
-                    type: string
-                    example: /mnt/discs/disc001
-                  status:
-                    type: string
-                    example: created
+                $ref: '#/components/schemas/DiscWorkflow'
         '400':
           description: Bad request - the specified path does not exist
           content:
@@ -79,6 +55,40 @@ paths:
 
 components:
   schemas:
+    CreateDiscRequest:
+      type: object
+      required:
+        - uuid
+        - path
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Client-provided UUID for the disc workflow
+          example: 550e8400-e29b-41d4-a716-446655440000
+        path:
+          type: string
+          description: Path to the directory containing the disc contents
+          example: /mnt/discs/disc001
+    
+    DiscWorkflow:
+      type: object
+      required:
+        - uuid
+        - path
+        - status
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        path:
+          type: string
+          example: /mnt/discs/disc001
+        status:
+          type: string
+          example: created
+    
     Error:
       type: object
       required:
