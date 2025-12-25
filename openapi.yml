@@ -161,12 +161,14 @@ components:
       properties:
         totalDurationSeconds:
           type: number
+          format: double
           description: Total duration of the video in seconds
           example: 3600
         chapterDurationsSeconds:
           type: array
           items:
             type: number
+            format: double
           description: List of chapter durations in seconds
           example: [600, 1200, 1800]
     
