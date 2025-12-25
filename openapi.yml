@@ -14,6 +14,33 @@ servers:
     description: Production server
 
 paths:
+  /activity/get_video_info/complete:
+    post:
+      summary: Complete the GetVideoInfo activity
+      description: Completes the GetVideoInfo activity with the provided token
+      operationId: CompleteGetVideoInfoActivity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteGetVideoInfoActivityRequest'
+      responses:
+        '200':
+          description: Activity completed successfully
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
   /disc:
     post:
       summary: Create a disc workflow
@@ -55,6 +82,17 @@ paths:
 
 components:
   schemas:
+    CompleteGetVideoInfoActivityRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          format: byte
+          description: Base64-encoded binary token
+          example: dGVzdC10b2tlbi1kYXRh
+    
     CreateDiscRequest:
       type: object
       required:
@@ -103,5 +141,7 @@ components:
           example: An error occurred
 
 tags:
+  - name: activity
+    description: Activity management endpoints
   - name: disc
     description: Disc workflow management endpoints

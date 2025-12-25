@@ -23,6 +23,12 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// CompleteGetVideoInfoActivityRequest defines model for CompleteGetVideoInfoActivityRequest.
+type CompleteGetVideoInfoActivityRequest struct {
+	// Token Base64-encoded binary token
+	Token []byte `json:"token"`
+}
+
 // CreateDiscRequest defines model for CreateDiscRequest.
 type CreateDiscRequest struct {
 	// Path Path to the directory containing the disc contents
@@ -44,6 +50,9 @@ type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
+
+// CompleteGetVideoInfoActivityJSONRequestBody defines body for CompleteGetVideoInfoActivity for application/json ContentType.
+type CompleteGetVideoInfoActivityJSONRequestBody = CompleteGetVideoInfoActivityRequest
 
 // CreateDiscJSONRequestBody defines body for CreateDisc for application/json ContentType.
 type CreateDiscJSONRequestBody = CreateDiscRequest
@@ -121,10 +130,39 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// CompleteGetVideoInfoActivityWithBody request with any body
+	CompleteGetVideoInfoActivityWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CompleteGetVideoInfoActivity(ctx context.Context, body CompleteGetVideoInfoActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateDiscWithBody request with any body
 	CreateDiscWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateDisc(ctx context.Context, body CreateDiscJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) CompleteGetVideoInfoActivityWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteGetVideoInfoActivityRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CompleteGetVideoInfoActivity(ctx context.Context, body CompleteGetVideoInfoActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteGetVideoInfoActivityRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) CreateDiscWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -149,6 +187,46 @@ func (c *Client) CreateDisc(ctx context.Context, body CreateDiscJSONRequestBody,
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewCompleteGetVideoInfoActivityRequest calls the generic CompleteGetVideoInfoActivity builder with application/json body
+func NewCompleteGetVideoInfoActivityRequest(server string, body CompleteGetVideoInfoActivityJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCompleteGetVideoInfoActivityRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCompleteGetVideoInfoActivityRequestWithBody generates requests for CompleteGetVideoInfoActivity with any type of body
+func NewCompleteGetVideoInfoActivityRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/activity/get_video_info/complete")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewCreateDiscRequest calls the generic CreateDisc builder with application/json body
@@ -234,10 +312,38 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// CompleteGetVideoInfoActivityWithBodyWithResponse request with any body
+	CompleteGetVideoInfoActivityWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteGetVideoInfoActivityResponse, error)
+
+	CompleteGetVideoInfoActivityWithResponse(ctx context.Context, body CompleteGetVideoInfoActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*CompleteGetVideoInfoActivityResponse, error)
+
 	// CreateDiscWithBodyWithResponse request with any body
 	CreateDiscWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDiscResponse, error)
 
 	CreateDiscWithResponse(ctx context.Context, body CreateDiscJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDiscResponse, error)
+}
+
+type CompleteGetVideoInfoActivityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CompleteGetVideoInfoActivityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CompleteGetVideoInfoActivityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type CreateDiscResponse struct {
@@ -265,6 +371,23 @@ func (r CreateDiscResponse) StatusCode() int {
 	return 0
 }
 
+// CompleteGetVideoInfoActivityWithBodyWithResponse request with arbitrary body returning *CompleteGetVideoInfoActivityResponse
+func (c *ClientWithResponses) CompleteGetVideoInfoActivityWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteGetVideoInfoActivityResponse, error) {
+	rsp, err := c.CompleteGetVideoInfoActivityWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompleteGetVideoInfoActivityResponse(rsp)
+}
+
+func (c *ClientWithResponses) CompleteGetVideoInfoActivityWithResponse(ctx context.Context, body CompleteGetVideoInfoActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*CompleteGetVideoInfoActivityResponse, error) {
+	rsp, err := c.CompleteGetVideoInfoActivity(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompleteGetVideoInfoActivityResponse(rsp)
+}
+
 // CreateDiscWithBodyWithResponse request with arbitrary body returning *CreateDiscResponse
 func (c *ClientWithResponses) CreateDiscWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDiscResponse, error) {
 	rsp, err := c.CreateDiscWithBody(ctx, contentType, body, reqEditors...)
@@ -280,6 +403,39 @@ func (c *ClientWithResponses) CreateDiscWithResponse(ctx context.Context, body C
 		return nil, err
 	}
 	return ParseCreateDiscResponse(rsp)
+}
+
+// ParseCompleteGetVideoInfoActivityResponse parses an HTTP response from a CompleteGetVideoInfoActivityWithResponse call
+func ParseCompleteGetVideoInfoActivityResponse(rsp *http.Response) (*CompleteGetVideoInfoActivityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CompleteGetVideoInfoActivityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseCreateDiscResponse parses an HTTP response from a CreateDiscWithResponse call
@@ -331,6 +487,9 @@ func ParseCreateDiscResponse(rsp *http.Response) (*CreateDiscResponse, error) {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Complete the GetVideoInfo activity
+	// (POST /activity/get_video_info/complete)
+	CompleteGetVideoInfoActivity(w http.ResponseWriter, r *http.Request)
 	// Create a disc workflow
 	// (POST /disc)
 	CreateDisc(w http.ResponseWriter, r *http.Request)
@@ -344,6 +503,20 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// CompleteGetVideoInfoActivity operation middleware
+func (siw *ServerInterfaceWrapper) CompleteGetVideoInfoActivity(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteGetVideoInfoActivity(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // CreateDisc operation middleware
 func (siw *ServerInterfaceWrapper) CreateDisc(w http.ResponseWriter, r *http.Request) {
@@ -479,9 +652,44 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	m.HandleFunc("POST "+options.BaseURL+"/activity/get_video_info/complete", wrapper.CompleteGetVideoInfoActivity)
 	m.HandleFunc("POST "+options.BaseURL+"/disc", wrapper.CreateDisc)
 
 	return m
+}
+
+type CompleteGetVideoInfoActivityRequestObject struct {
+	Body *CompleteGetVideoInfoActivityJSONRequestBody
+}
+
+type CompleteGetVideoInfoActivityResponseObject interface {
+	VisitCompleteGetVideoInfoActivityResponse(w http.ResponseWriter) error
+}
+
+type CompleteGetVideoInfoActivity200Response struct {
+}
+
+func (response CompleteGetVideoInfoActivity200Response) VisitCompleteGetVideoInfoActivityResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type CompleteGetVideoInfoActivity400JSONResponse Error
+
+func (response CompleteGetVideoInfoActivity400JSONResponse) VisitCompleteGetVideoInfoActivityResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CompleteGetVideoInfoActivity500JSONResponse Error
+
+func (response CompleteGetVideoInfoActivity500JSONResponse) VisitCompleteGetVideoInfoActivityResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 type CreateDiscRequestObject struct {
@@ -530,6 +738,9 @@ func (response CreateDisc500JSONResponse) VisitCreateDiscResponse(w http.Respons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Complete the GetVideoInfo activity
+	// (POST /activity/get_video_info/complete)
+	CompleteGetVideoInfoActivity(ctx context.Context, request CompleteGetVideoInfoActivityRequestObject) (CompleteGetVideoInfoActivityResponseObject, error)
 	// Create a disc workflow
 	// (POST /disc)
 	CreateDisc(ctx context.Context, request CreateDiscRequestObject) (CreateDiscResponseObject, error)
@@ -562,6 +773,37 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// CompleteGetVideoInfoActivity operation middleware
+func (sh *strictHandler) CompleteGetVideoInfoActivity(w http.ResponseWriter, r *http.Request) {
+	var request CompleteGetVideoInfoActivityRequestObject
+
+	var body CompleteGetVideoInfoActivityJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompleteGetVideoInfoActivity(ctx, request.(CompleteGetVideoInfoActivityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompleteGetVideoInfoActivity")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompleteGetVideoInfoActivityResponseObject); ok {
+		if err := validResponse.VisitCompleteGetVideoInfoActivityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // CreateDisc operation middleware
@@ -598,19 +840,22 @@ func (sh *strictHandler) CreateDisc(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
