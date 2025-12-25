@@ -117,6 +117,8 @@ components:
           format: byte
           description: Base64-encoded binary token
           example: dGVzdC10b2tlbi1kYXRh
+        error:
+          $ref: '#/components/schemas/Error'
     
     CompleteTranscodeActivityRequest:
       type: object
@@ -135,6 +137,8 @@ components:
           maximum: 100
           description: Completion percentage (0-100)
           example: 75
+        error:
+          $ref: '#/components/schemas/Error'
     
     CreateDiscRequest:
       type: object
@@ -182,4 +186,3 @@ components:
         message:
           type: string
           example: An error occurred
-
