@@ -63,11 +63,23 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+// HeartbeatTranscodeActivityRequest defines model for HeartbeatTranscodeActivityRequest.
+type HeartbeatTranscodeActivityRequest struct {
+	// CompletionPercentage Completion percentage (0-100)
+	CompletionPercentage int `json:"completionPercentage"`
+
+	// Token Base64-encoded binary token
+	Token []byte `json:"token"`
+}
+
 // CompleteGetVideoInfoActivityJSONRequestBody defines body for CompleteGetVideoInfoActivity for application/json ContentType.
 type CompleteGetVideoInfoActivityJSONRequestBody = CompleteGetVideoInfoActivityRequest
 
 // CompleteTranscodeActivityJSONRequestBody defines body for CompleteTranscodeActivity for application/json ContentType.
 type CompleteTranscodeActivityJSONRequestBody = CompleteTranscodeActivityRequest
+
+// TranscodeActivityHeartbeatJSONRequestBody defines body for TranscodeActivityHeartbeat for application/json ContentType.
+type TranscodeActivityHeartbeatJSONRequestBody = HeartbeatTranscodeActivityRequest
 
 // CreateDiscJSONRequestBody defines body for CreateDisc for application/json ContentType.
 type CreateDiscJSONRequestBody = CreateDiscRequest
@@ -155,6 +167,11 @@ type ClientInterface interface {
 
 	CompleteTranscodeActivity(ctx context.Context, body CompleteTranscodeActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// TranscodeActivityHeartbeatWithBody request with any body
+	TranscodeActivityHeartbeatWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	TranscodeActivityHeartbeat(ctx context.Context, body TranscodeActivityHeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateDiscWithBody request with any body
 	CreateDiscWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -199,6 +216,30 @@ func (c *Client) CompleteTranscodeActivityWithBody(ctx context.Context, contentT
 
 func (c *Client) CompleteTranscodeActivity(ctx context.Context, body CompleteTranscodeActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCompleteTranscodeActivityRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TranscodeActivityHeartbeatWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTranscodeActivityHeartbeatRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TranscodeActivityHeartbeat(ctx context.Context, body TranscodeActivityHeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTranscodeActivityHeartbeatRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -313,6 +354,46 @@ func NewCompleteTranscodeActivityRequestWithBody(server string, contentType stri
 	return req, nil
 }
 
+// NewTranscodeActivityHeartbeatRequest calls the generic TranscodeActivityHeartbeat builder with application/json body
+func NewTranscodeActivityHeartbeatRequest(server string, body TranscodeActivityHeartbeatJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewTranscodeActivityHeartbeatRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewTranscodeActivityHeartbeatRequestWithBody generates requests for TranscodeActivityHeartbeat with any type of body
+func NewTranscodeActivityHeartbeatRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/activity/transcode/heartbeat")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewCreateDiscRequest calls the generic CreateDisc builder with application/json body
 func NewCreateDiscRequest(server string, body CreateDiscJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -406,6 +487,11 @@ type ClientWithResponsesInterface interface {
 
 	CompleteTranscodeActivityWithResponse(ctx context.Context, body CompleteTranscodeActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*CompleteTranscodeActivityResponse, error)
 
+	// TranscodeActivityHeartbeatWithBodyWithResponse request with any body
+	TranscodeActivityHeartbeatWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TranscodeActivityHeartbeatResponse, error)
+
+	TranscodeActivityHeartbeatWithResponse(ctx context.Context, body TranscodeActivityHeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*TranscodeActivityHeartbeatResponse, error)
+
 	// CreateDiscWithBodyWithResponse request with any body
 	CreateDiscWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDiscResponse, error)
 
@@ -452,6 +538,29 @@ func (r CompleteTranscodeActivityResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CompleteTranscodeActivityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type TranscodeActivityHeartbeatResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r TranscodeActivityHeartbeatResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TranscodeActivityHeartbeatResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -515,6 +624,23 @@ func (c *ClientWithResponses) CompleteTranscodeActivityWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseCompleteTranscodeActivityResponse(rsp)
+}
+
+// TranscodeActivityHeartbeatWithBodyWithResponse request with arbitrary body returning *TranscodeActivityHeartbeatResponse
+func (c *ClientWithResponses) TranscodeActivityHeartbeatWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TranscodeActivityHeartbeatResponse, error) {
+	rsp, err := c.TranscodeActivityHeartbeatWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTranscodeActivityHeartbeatResponse(rsp)
+}
+
+func (c *ClientWithResponses) TranscodeActivityHeartbeatWithResponse(ctx context.Context, body TranscodeActivityHeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*TranscodeActivityHeartbeatResponse, error) {
+	rsp, err := c.TranscodeActivityHeartbeat(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTranscodeActivityHeartbeatResponse(rsp)
 }
 
 // CreateDiscWithBodyWithResponse request with arbitrary body returning *CreateDiscResponse
@@ -600,6 +726,39 @@ func ParseCompleteTranscodeActivityResponse(rsp *http.Response) (*CompleteTransc
 	return response, nil
 }
 
+// ParseTranscodeActivityHeartbeatResponse parses an HTTP response from a TranscodeActivityHeartbeatWithResponse call
+func ParseTranscodeActivityHeartbeatResponse(rsp *http.Response) (*TranscodeActivityHeartbeatResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TranscodeActivityHeartbeatResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateDiscResponse parses an HTTP response from a CreateDiscWithResponse call
 func ParseCreateDiscResponse(rsp *http.Response) (*CreateDiscResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -655,6 +814,9 @@ type ServerInterface interface {
 	// Complete the Transcode activity
 	// (POST /activity/transcode/complete)
 	CompleteTranscodeActivity(w http.ResponseWriter, r *http.Request)
+	// Heartbeat for the Transcode activity
+	// (POST /activity/transcode/heartbeat)
+	TranscodeActivityHeartbeat(w http.ResponseWriter, r *http.Request)
 	// Create a disc workflow
 	// (POST /disc)
 	CreateDisc(w http.ResponseWriter, r *http.Request)
@@ -688,6 +850,20 @@ func (siw *ServerInterfaceWrapper) CompleteTranscodeActivity(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CompleteTranscodeActivity(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TranscodeActivityHeartbeat operation middleware
+func (siw *ServerInterfaceWrapper) TranscodeActivityHeartbeat(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TranscodeActivityHeartbeat(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -833,6 +1009,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc("POST "+options.BaseURL+"/activity/get_video_info/complete", wrapper.CompleteGetVideoInfoActivity)
 	m.HandleFunc("POST "+options.BaseURL+"/activity/transcode/complete", wrapper.CompleteTranscodeActivity)
+	m.HandleFunc("POST "+options.BaseURL+"/activity/transcode/heartbeat", wrapper.TranscodeActivityHeartbeat)
 	m.HandleFunc("POST "+options.BaseURL+"/disc", wrapper.CreateDisc)
 
 	return m
@@ -906,6 +1083,40 @@ func (response CompleteTranscodeActivity500JSONResponse) VisitCompleteTranscodeA
 	return json.NewEncoder(w).Encode(response)
 }
 
+type TranscodeActivityHeartbeatRequestObject struct {
+	Body *TranscodeActivityHeartbeatJSONRequestBody
+}
+
+type TranscodeActivityHeartbeatResponseObject interface {
+	VisitTranscodeActivityHeartbeatResponse(w http.ResponseWriter) error
+}
+
+type TranscodeActivityHeartbeat200Response struct {
+}
+
+func (response TranscodeActivityHeartbeat200Response) VisitTranscodeActivityHeartbeatResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type TranscodeActivityHeartbeat400JSONResponse Error
+
+func (response TranscodeActivityHeartbeat400JSONResponse) VisitTranscodeActivityHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type TranscodeActivityHeartbeat500JSONResponse Error
+
+func (response TranscodeActivityHeartbeat500JSONResponse) VisitTranscodeActivityHeartbeatResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type CreateDiscRequestObject struct {
 	Body *CreateDiscJSONRequestBody
 }
@@ -958,6 +1169,9 @@ type StrictServerInterface interface {
 	// Complete the Transcode activity
 	// (POST /activity/transcode/complete)
 	CompleteTranscodeActivity(ctx context.Context, request CompleteTranscodeActivityRequestObject) (CompleteTranscodeActivityResponseObject, error)
+	// Heartbeat for the Transcode activity
+	// (POST /activity/transcode/heartbeat)
+	TranscodeActivityHeartbeat(ctx context.Context, request TranscodeActivityHeartbeatRequestObject) (TranscodeActivityHeartbeatResponseObject, error)
 	// Create a disc workflow
 	// (POST /disc)
 	CreateDisc(ctx context.Context, request CreateDiscRequestObject) (CreateDiscResponseObject, error)
@@ -1054,6 +1268,37 @@ func (sh *strictHandler) CompleteTranscodeActivity(w http.ResponseWriter, r *htt
 	}
 }
 
+// TranscodeActivityHeartbeat operation middleware
+func (sh *strictHandler) TranscodeActivityHeartbeat(w http.ResponseWriter, r *http.Request) {
+	var request TranscodeActivityHeartbeatRequestObject
+
+	var body TranscodeActivityHeartbeatJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TranscodeActivityHeartbeat(ctx, request.(TranscodeActivityHeartbeatRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TranscodeActivityHeartbeat")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TranscodeActivityHeartbeatResponseObject); ok {
+		if err := validResponse.VisitTranscodeActivityHeartbeatResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateDisc operation middleware
 func (sh *strictHandler) CreateDisc(w http.ResponseWriter, r *http.Request) {
 	var request CreateDiscRequestObject
@@ -1088,24 +1333,25 @@ func (sh *strictHandler) CreateDisc(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xX7W/bthP+Vwj+fh82QLbo1E5TfVreUBgousB92YaiCGjybLORSJY8OfEK/+8DKckv",
-	"kVK3QJNtwL4EinR3fO65547nL1SYwhoNGj3NvlAvFlDw+HhuCpsDwkvA90qCGeuZORWolgpXE/hcgsdg",
-	"Zp2x4FBBdALnjAsP/3cwoxn9X7qNn9bB08totE4omhvQwVqCF05ZVEbTjJ5xD8fDHmhhJEgyVZq7FamM",
-	"Ewp3PACjGZUv3/8pzwdseoT5VA1u/vh9sqAJnRlXcKQZna4QaEJxZYO1R6f0nK7XCXXwuVQOJM0+1Bg+",
-	"bszM9BMIDOgaAt46rn2AcjB7UXkoo6/ACdDI59BO73xjRezGjPzEegPGft5N8PkooQW/U0VZ0GzAWEIL",
-	"pav/2Aav0ghziHT+W8lPuonrrIkDjnChvHiwCJbjop3WFccFQUNwAUQqBwKNWxFhNHKllZ7XH7yI72I7",
-	"7GabFhrT8NnHv4wN2rkltCyV7Kh3rkBjzzqzVIHSd+/GF2Rm3PbIW+NuZrm53TtyNGJwMmSsB0cvpr3h",
-	"QA57/PnguDccHh+PRsMhY4ztEh4PP0R4bRQ56uI3MPtbg+ZBar+XF48cS7/vKWIl5ddofEIuNhi7SLls",
-	"+up+t0vYhzl+/fZy8vr01fXlZPLrpCu1Aryvh8LW7VST2LrECFE6B4ehx6O30dqgg4PSM1Ph1MhF7BQo",
-	"uMpD2NJa4/CXGkNfmIImVPMiwrkakzeVQYC8L+bw0YNbKgFRwwXXfB76Z0/IoXlQYcwuSIo0miJvKl+a",
-	"0CU4X8Uc9FmfhaOMBc2tohl91mf9Z3VxItkpr4dvOge8Do1krkOCaT06IqXWVAOhc96Cjw23e52RJii5",
-	"VWE8LIBsurQZTaHiPEQay51YXZcirWoEHs+MXDXMg46QuLW5EjFQ+skbvb1sDw3sb7mH1/sCQVdCfOGt",
-	"0b5S6xFjbWqaOKRhURJfCgHez8o8X4WaDCu/H5JKffesW6o645K4JpeEjp7izLFGcJrnUc7gqhaMnebL",
-	"ouButVPuh5UTHbbixGZX+G5dbraMg6IkXEsiupaIB+XaWmEeWasPrkz/CfUJhNqWUqXSMKK/Isd4IXvC",
-	"iYbb/XFeKZET0bXJBDVuN6r6Nr0nw83W9li6a62F3yS0wQ8DsLc3ddTwYo/Oevf52yVMelEv3oJQMwUy",
-	"Vo9IA55ogwTuVCXzIXvx+LjOjZ7lSjSg5moJulKY8oTnDrhcEaVJ6eGf1XqxmITfW+VjtMrN0+zD/W57",
-	"ZQTPiYQl5MYWoLE+gia0dGFFWyDaLE3zYLcwHrMTdhKWpNYPG2dkKeJF0BHBZ2nKrervLnrrj+u/AgAA",
-	"///SrTb89w8AAA==",
+	"H4sIAAAAAAAC/+xYb28auRP+KpZ/vxd30sKaFtJ0X13+qUWqehFpe3eqqsjYA7jZtbf2LAlX8d1P9v4B",
+	"wlJSqeQuUt9EhB2PZ5555tkZvlJhstxo0Oho8pU6MYOMh49nJstTQHgF+EFJMEM9MScC1VzhYgRfCnDo",
+	"zXJrcrCoIBwCa431H/5vYUIT+r945T+unMcXwWgZUTQ3oL21BCesylEZTRN6yh0c9TughZEgyVhpbhek",
+	"NI4o3HEfGE2ofPXhb3nWY+NnmI5V7+avP0czGtGJsRlHmtDxAoFGFBe5t3ZolZ7S5TKiFr4UyoKkyccq",
+	"hk+NmRl/BoE+uhqAd5Zr50PZm70oTyijL8EK0MinsJ3eWWNF8saM/MI6PcZ+XU/wxSCiGb9TWZHRpMdY",
+	"RDOly/9YE6/SCFMIcD5V8KN24FprYoEjnCsndhYh5zjbTuuS44ygITgDIpUFgcYuiDAaudJKT6sHToTv",
+	"QjusZxtnGmP/2IW/jPW2c4toUSjZUu9UgcZObs1ceUjfvx+ek4mxqytvjb2ZpOZ248rBgMFxn7EOPHs5",
+	"7vR7st/hL3pHnX7/6Ggw6PcZY2wd8HD5PsAro4BRG74e2T/qaHZC+724OORYuM2TIlRSfgvGR8SiibEN",
+	"lIu6r+53u4TNMIdv312M3p68ub4YjX4ftaWWgXOVKKyOnWgSWpcYIQprYX/o4eqVt7agXwO3OAaOT0a+",
+	"nqAg+eNKT0yJnkYuAqyQcZX6S4o8NxZ/q4LsCpPRiGqehapfDslVaeCz30zaP3Rg50pAkIqMaz71MrWh",
+	"F16jUGFI33cuqVuXXJVnaUTnYF3ps9dlXeavMjloniua0Odd1n1e9UCgQMwrksRTwGuvV+baJxhXgAQ+",
+	"5KZkTysvwAVdW58aSO2U3CqvwjMgjRjWgHsecu9pKNd8tc0etKwYODw1clEjDzqExPM8VSI4ij87o1cz",
+	"zb734kPGneUmXdAWEL5wudGu7KFnjG1DU/shNYqSuEIIcG5SpOnC16RfnvshqVSv+OUWq065JLbOJaKD",
+	"x7hzqBGs5mmgM9hS6ULfuSLLuF2slXs3c8KBFTmx1rTv5mWjhntJSbiWRLSJ3U66bkntgbm6U9p/EvUR",
+	"iLpNpZ0sndUv4900vQItHeGkMW1GxINQdos6zbxwIM7un0d+kvYwpH39AEaVzPXDxTeENEzsnqMabjcH",
+	"kZKQnIi2VceTcrVyVeP2PQFt1rpDKebW3vggtvV+WAAbi1VLIc834KyWo3+dx6QT+OJyEGqiQIbqEWnA",
+	"EW2QwJ0qud5nLw8f15nRk1SJOqipmoMuGaYc4akFLhdEaVI4+G+9NEIxCb+36wdv5TFHk4/3u+2NETwl",
+	"EuaQmjwDjdUVNKKF9cvFDDFP4jj1djPjMDlmx3683/rlwxpZiPA+aPHgkjjmuequryjLT8t/AgAA///Z",
+	"BtUlGBQAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

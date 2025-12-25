@@ -67,6 +67,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /activity/transcode/heartbeat:
+    post:
+      summary: Heartbeat for the Transcode activity
+      description: Sends a heartbeat for the Transcode activity with the provided token and completion percentage
+      operationId: TranscodeActivityHeartbeat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatTranscodeActivityRequest'
+      responses:
+        '200':
+          description: Activity completed successfully
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   
   /disc:
     post:
@@ -139,6 +166,24 @@ components:
           example: 75
         error:
           $ref: '#/components/schemas/Error'
+
+    HeartbeatTranscodeActivityRequest:
+      type: object
+      required:
+        - token
+        - completionPercentage
+      properties:
+        token:
+          type: string
+          format: byte
+          description: Base64-encoded binary token
+          example: dGVzdC10b2tlbi1kYXRh
+        completionPercentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Completion percentage (0-100)
+          example: 75
     
     CreateDiscRequest:
       type: object
