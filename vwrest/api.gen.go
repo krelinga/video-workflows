@@ -25,20 +25,36 @@ import (
 
 // CompleteGetVideoInfoActivityRequest defines model for CompleteGetVideoInfoActivityRequest.
 type CompleteGetVideoInfoActivityRequest struct {
-	Error *Error `json:"error,omitempty"`
+	// Error Error message if the activity failed
+	Error  *string                                    `json:"error,omitempty"`
+	Result *CompleteGetVideoInfoActivityRequestResult `json:"result,omitempty"`
 
 	// Token Base64-encoded binary token
 	Token []byte `json:"token"`
+
+	// Uuid UUID that was used to start the GetVideoInfo activity.
+	Uuid *openapi_types.UUID `json:"uuid,omitempty"`
+}
+
+// CompleteGetVideoInfoActivityRequestResult defines model for CompleteGetVideoInfoActivityRequestResult.
+type CompleteGetVideoInfoActivityRequestResult struct {
+	// ChapterDurationsSeconds List of chapter durations in seconds
+	ChapterDurationsSeconds []float32 `json:"chapterDurationsSeconds,omitempty"`
+
+	// TotalDurationSeconds Total duration of the video in seconds
+	TotalDurationSeconds *float32 `json:"totalDurationSeconds,omitempty"`
 }
 
 // CompleteTranscodeActivityRequest defines model for CompleteTranscodeActivityRequest.
 type CompleteTranscodeActivityRequest struct {
-	// CompletionPercentage Completion percentage (0-100)
-	CompletionPercentage int    `json:"completionPercentage"`
-	Error                *Error `json:"error,omitempty"`
+	// Error Error message if the transcode failed
+	Error *string `json:"error,omitempty"`
 
 	// Token Base64-encoded binary token
 	Token []byte `json:"token"`
+
+	// Uuid UUID that was used to start the transcode.
+	Uuid *openapi_types.UUID `json:"uuid,omitempty"`
 }
 
 // CreateDiscRequest defines model for CreateDiscRequest.
@@ -65,11 +81,14 @@ type Error struct {
 
 // HeartbeatTranscodeActivityRequest defines model for HeartbeatTranscodeActivityRequest.
 type HeartbeatTranscodeActivityRequest struct {
-	// CompletionPercentage Completion percentage (0-100)
-	CompletionPercentage int `json:"completionPercentage"`
+	// Progress Completion percentage (0-100)
+	Progress *float32 `json:"progress,omitempty"`
 
 	// Token Base64-encoded binary token
 	Token []byte `json:"token"`
+
+	// Uuid UUID that was used to start the transcode.
+	Uuid *openapi_types.UUID `json:"uuid,omitempty"`
 }
 
 // CompleteGetVideoInfoActivityJSONRequestBody defines body for CompleteGetVideoInfoActivity for application/json ContentType.
@@ -1333,25 +1352,28 @@ func (sh *strictHandler) CreateDisc(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xYb28auRP+KpZ/vxd30sKaFtJ0X13+qUWqehFpe3eqqsjYA7jZtbf2LAlX8d1P9v4B",
-	"wlJSqeQuUt9EhB2PZ5555tkZvlJhstxo0Oho8pU6MYOMh49nJstTQHgF+EFJMEM9MScC1VzhYgRfCnDo",
-	"zXJrcrCoIBwCa431H/5vYUIT+r945T+unMcXwWgZUTQ3oL21BCesylEZTRN6yh0c9TughZEgyVhpbhek",
-	"NI4o3HEfGE2ofPXhb3nWY+NnmI5V7+avP0czGtGJsRlHmtDxAoFGFBe5t3ZolZ7S5TKiFr4UyoKkyccq",
-	"hk+NmRl/BoE+uhqAd5Zr50PZm70oTyijL8EK0MinsJ3eWWNF8saM/MI6PcZ+XU/wxSCiGb9TWZHRpMdY",
-	"RDOly/9YE6/SCFMIcD5V8KN24FprYoEjnCsndhYh5zjbTuuS44ygITgDIpUFgcYuiDAaudJKT6sHToTv",
-	"QjusZxtnGmP/2IW/jPW2c4toUSjZUu9UgcZObs1ceUjfvx+ek4mxqytvjb2ZpOZ248rBgMFxn7EOPHs5",
-	"7vR7st/hL3pHnX7/6Ggw6PcZY2wd8HD5PsAro4BRG74e2T/qaHZC+724OORYuM2TIlRSfgvGR8SiibEN",
-	"lIu6r+53u4TNMIdv312M3p68ub4YjX4ftaWWgXOVKKyOnWgSWpcYIQprYX/o4eqVt7agXwO3OAaOT0a+",
-	"nqAg+eNKT0yJnkYuAqyQcZX6S4o8NxZ/q4LsCpPRiGqehapfDslVaeCz30zaP3Rg50pAkIqMaz71MrWh",
-	"F16jUGFI33cuqVuXXJVnaUTnYF3ps9dlXeavMjloniua0Odd1n1e9UCgQMwrksRTwGuvV+baJxhXgAQ+",
-	"5KZkTysvwAVdW58aSO2U3CqvwjMgjRjWgHsecu9pKNd8tc0etKwYODw1clEjDzqExPM8VSI4ij87o1cz",
-	"zb734kPGneUmXdAWEL5wudGu7KFnjG1DU/shNYqSuEIIcG5SpOnC16RfnvshqVSv+OUWq065JLbOJaKD",
-	"x7hzqBGs5mmgM9hS6ULfuSLLuF2slXs3c8KBFTmx1rTv5mWjhntJSbiWRLSJ3U66bkntgbm6U9p/EvUR",
-	"iLpNpZ0sndUv4900vQItHeGkMW1GxINQdos6zbxwIM7un0d+kvYwpH39AEaVzPXDxTeENEzsnqMabjcH",
-	"kZKQnIi2VceTcrVyVeP2PQFt1rpDKebW3vggtvV+WAAbi1VLIc834KyWo3+dx6QT+OJyEGqiQIbqEWnA",
-	"EW2QwJ0qud5nLw8f15nRk1SJOqipmoMuGaYc4akFLhdEaVI4+G+9NEIxCb+36wdv5TFHk4/3u+2NETwl",
-	"EuaQmjwDjdUVNKKF9cvFDDFP4jj1djPjMDlmx3683/rlwxpZiPA+aPHgkjjmuequryjLT8t/AgAA///Z",
-	"BtUlGBQAAA==",
+	"H4sIAAAAAAAC/+xYbW/bNhf9Kxd8ng8bIFty6qSpP61NsjZA0RVO2m0oioImr2y2EqmSV069Iv99IPVi",
+	"O5LbFIizDciXwJH4cu7huYf36isTJi+MRk2OTb4yJxaY8/DzxORFhoTPkd4qieZcp+apILVUtJri5xId",
+	"+WGFNQVaUhgmobXG+h8SnbCqIGU0m7Az/xhydI7PEVQKtEDg9WKQcpWhZBHDL9zvySbs1/AIyIBFsgqX",
+	"CEsPApRODcgS/SuNdGXsJ6g2jRitCj/XkVV6zq4jZtGVWUD5f4spm7D/xetw4zrW+BaBTquFriNG5hPq",
+	"boDPuMOj8QC1MBIlzJTmdgXV4M245PO3f8mTUTI7oGymRp/+/GO6YBFLjc05sQmbrQj7IilLJbu7vnlz",
+	"fgq04ARX3EHpKsYccUuB4c2IWrqHW4AODxM8HifJAA+ezAbjkRwP+OPR0WA8Pjo6PByPkyRJNgEGIB2A",
+	"gevPpbIo2eRdTdL7dpiZfUQR6Ls91x1piQUvCO1pabkP312gMFq6LisvlSMwKdQTQDYzQGlw9awNDt4d",
+	"JUk0OvB/jpPkfcQUYR7WreHrMp+hDadfPeDW8lWlBuJZg2gnoEs/qoXhofnDafTcB+mRh3Rz++tv8Hlp",
+	"uXZee3eaodSs2peilzdeNlmptCvTVAmFmsCiM6UV6PpE/Z/KpZaLe8ufKHhzhh7ga7QCNfE59qeVRU54",
+	"qpzYee4Fp0U36tecFj5OH6FUFgUZuwJhNHGllZ7XL5wIz8ItsRl9nGuK/WsX/ibJ6PaEn2ReIYPCGp8J",
+	"EsIBpMaut/Tmnmbmav+E14MCR338emZ/b9DspPZHeXHEqXTbM0U4SfktGu+RixZjHylnjZPc8GkjcRvm",
+	"+avLs+mrpy8/nE2nv037Qqt9Z3vaU13d7GCEKK3F70MPW69X6wP9ArmlGXK6vWMW1swtuh5jP2nzE4o2",
+	"QeGnZDBKkp83Vfv4MGI5/6LyMmeTkff2XOnqv67PPxjjXRmjn+4LxkqWmrgIx4s5V5nfpCwKY+mXGvRQ",
+	"mJxFTPM8qO/1OVxUAzw325z4lw7tUgkMlpVzzefeLrd8K1x6igId3kGgsRC4qOayiC3RumrN0TAZJn4r",
+	"U6DmhWIT9miYDB/VuRjkFzdFXDxH+hAqiA8+wLgmJGRQYSoV92oV3e7KEK6Uvw0WCK0pN4T7fAjVy7nc",
+	"WKuvimPViaGjZ0auGuZRB0i8KDIlwkLxR2f0uuW4gyK9Ou+1XMiWWDUBhdGuyuWDJOlS06wDDYsSXCkE",
+	"OpeWWRYKvXE1705CqXwzgL2Z3xJsE0vEDu9jz3NNaDXPgpzR1r2UH+fKPOd2tXHcu5UTJqzF2VrCD+ty",
+	"XVR+T5TAtQTRZ8A75dqx/D1rdecV8yDUexBqV0o7VbpoioLdMr1ALR1waIe2pepeJNuRTlu37Emz36+L",
+	"HkS7H9G+uIWiKuX64uIbRho6B69RjVfbhUglSA6ir+Xyoly3fnXZf8NA2/ZyX47Z6V9vpbbRnQHYavB6",
+	"DvJ0i866SfvHdQyDoBdXoFCpQhlOD6RBB9oQ4BdVaX2cPNk/rhOj00yJBtRcLVFXClMOeGaRyxUo7TuI",
+	"f9elEQ4T+I1vDmG1appjk3edj4xG8AwkLjEzRY6a6i1YxErrm4sFUTGJ48yPWxhHk+Pk2Jf3nS8w1shS",
+	"hPugZwU3iWNeqOFmi3L9/vrvAAAA//8zt+7rtxcAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

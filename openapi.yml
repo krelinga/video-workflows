@@ -144,8 +144,31 @@ components:
           format: byte
           description: Base64-encoded binary token
           example: dGVzdC10b2tlbi1kYXRh
+        uuid:
+          type: string
+          format: uuid
+          description: UUID that was used to start the GetVideoInfo activity.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        result:
+          $ref: '#/components/schemas/CompleteGetVideoInfoActivityRequestResult'
         error:
-          $ref: '#/components/schemas/Error'
+          type: string
+          description: Error message if the activity failed
+          example: Failed to retrieve video info due to network error
+
+    CompleteGetVideoInfoActivityRequestResult:
+      type: object
+      properties:
+        totalDurationSeconds:
+          type: number
+          description: Total duration of the video in seconds
+          example: 3600
+        chapterDurationsSeconds:
+          type: array
+          items:
+            type: number
+          description: List of chapter durations in seconds
+          example: [600, 1200, 1800]
     
     CompleteTranscodeActivityRequest:
       type: object
@@ -158,14 +181,15 @@ components:
           format: byte
           description: Base64-encoded binary token
           example: dGVzdC10b2tlbi1kYXRh
-        completionPercentage:
-          type: integer
-          minimum: 0
-          maximum: 100
-          description: Completion percentage (0-100)
-          example: 75
+        uuid:
+          type: string
+          format: uuid
+          description: UUID that was used to start the transcode.
+          example: 550e8400-e29b-41d4-a716-446655440000
         error:
-          $ref: '#/components/schemas/Error'
+          type: string
+          description: Error message if the transcode failed
+          example: Transcode failed due to insufficient resources
 
     HeartbeatTranscodeActivityRequest:
       type: object
@@ -178,12 +202,17 @@ components:
           format: byte
           description: Base64-encoded binary token
           example: dGVzdC10b2tlbi1kYXRh
-        completionPercentage:
-          type: integer
+        uuid:
+          type: string
+          format: uuid
+          description: UUID that was used to start the transcode.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        progress:
+          type: number
           minimum: 0
           maximum: 100
           description: Completion percentage (0-100)
-          example: 75
+          example: 75.0
     
     CreateDiscRequest:
       type: object
