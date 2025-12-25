@@ -41,6 +41,33 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   
+  /activity/transcode/complete:
+    post:
+      summary: Complete the Transcode activity
+      description: Completes the Transcode activity with the provided token and completion percentage
+      operationId: CompleteTranscodeActivity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteTranscodeActivityRequest'
+      responses:
+        '200':
+          description: Activity completed successfully
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
   /disc:
     post:
       summary: Create a disc workflow
@@ -90,6 +117,24 @@ components:
           format: byte
           description: Base64-encoded binary token
           example: dGVzdC10b2tlbi1kYXRh
+    
+    CompleteTranscodeActivityRequest:
+      type: object
+      required:
+        - token
+        - completionPercentage
+      properties:
+        token:
+          type: string
+          format: byte
+          description: Base64-encoded binary token
+          example: dGVzdC10b2tlbi1kYXRh
+        completionPercentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Completion percentage (0-100)
+          example: 75
     
     CreateDiscRequest:
       type: object
