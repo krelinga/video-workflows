@@ -46,8 +46,6 @@ paths:
       summary: Create a disc workflow
       description: Creates a new disc workflow with a client-provided UUID and directory path
       operationId: createDisc
-      tags:
-        - disc
       requestBody:
         required: true
         content:
@@ -140,8 +138,3 @@ components:
           type: string
           example: An error occurred
 
-tags:
-  - name: activity
-    description: Activity management endpoints
-  - name: disc
-    description: Disc workflow management endpoints
