@@ -10,9 +10,11 @@ import (
 )
 
 type TranscodeParams struct {
-	Uuid       string `json:"uuid"`
-	InputPath  string `json:"input_path"`
-	OutputPath string `json:"output_path"`
+	Uuid               string `json:"uuid"`
+	InputPath          string `json:"input_path"`
+	OutputPath         string `json:"output_path"`
+	WebhookCompleteURI string `json:"webhook_complete_uri"`
+	WebhookProgressURI string `json:"webhook_progress_uri"`
 }
 
 type TranscodeDeps struct {
@@ -21,10 +23,12 @@ type TranscodeDeps struct {
 
 func (d *TranscodeDeps) Transcode(ctx context.Context, params TranscodeParams) error {
 	req := vtrest.CreateTranscodeJSONRequestBody{
-		Uuid:            uuid.MustParse(params.Uuid),
-		SourcePath:      params.InputPath,
-		DestinationPath: params.OutputPath,
-		// TODO: add activity token.
+		Uuid:                uuid.MustParse(params.Uuid),
+		SourcePath:          params.InputPath,
+		DestinationPath:     params.OutputPath,
+		WebhookToken:        activity.GetInfo(ctx).TaskToken,
+		WebhookUri:          &params.WebhookCompleteURI,
+		HeartbeatWebhookUri: &params.WebhookProgressURI,
 	}
 	_, err := d.Client.CreateTranscodeWithResponse(ctx, req)
 	if err != nil {
