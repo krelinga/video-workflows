@@ -13,6 +13,7 @@ import (
 type GetVideoInfoParams struct {
 	Uuid      string `json:"uuid"`
 	VideoPath string `json:"video_path"`
+	WebhookCompleteURI string `json:"webhook_complete_uri"`
 }
 
 type VideoInfo struct {
@@ -34,6 +35,8 @@ func (d *VideoInfoDeps) GetVideoInfo(ctx context.Context, params GetVideoInfoPar
 	req := virest.CreateInfoJSONRequestBody{
 		Uuid:      uuid.MustParse(params.Uuid),
 		VideoPath: params.VideoPath,
+		WebhookUri: &params.WebhookCompleteURI,
+		WebhookToken: activity.GetInfo(ctx).TaskToken,
 	}
 	resp, err := d.Client.CreateInfoWithResponse(ctx, req)
 	switch {
