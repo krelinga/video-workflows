@@ -17,6 +17,10 @@ type TranscodeParams struct {
 	WebhookProgressURI string `json:"webhook_progress_uri"`
 }
 
+type TranscodeProgress struct {
+	Percentage float64 `json:"percentage"`
+}
+
 type TranscodeDeps struct {
 	Client vtrest.ClientWithResponsesInterface
 }
