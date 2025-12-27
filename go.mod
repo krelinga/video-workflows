@@ -8,6 +8,7 @@ require (
 	github.com/krelinga/video-info v0.0.1
 	github.com/krelinga/video-transcoder v0.0.4
 	github.com/oapi-codegen/runtime v1.1.2
+	go.temporal.io/api v1.54.0
 	go.temporal.io/sdk v1.38.0
 )
 
@@ -33,7 +34,6 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
-	go.temporal.io/api v1.54.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
