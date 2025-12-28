@@ -211,6 +211,31 @@ func TestEnd2End(t *testing.T) {
 	t.Cleanup(func() {
 		dumpContainerLogs(t, ctx, videoInfoWorkerContainer, "videoInfoWorker")
 	})
+
+	// Start workflows postgres
+	workflowsDbName := "videoworkflows"
+	workflowsPostgresReq := testcontainers.ContainerRequest{
+		Image:        "postgres:16",
+		ExposedPorts: []string{"5432/tcp"},
+		Env: map[string]string{
+			"POSTGRES_DB":       workflowsDbName,
+			"POSTGRES_USER":     dbUser,
+			"POSTGRES_PASSWORD": dbPassword,
+		},
+		Networks:       []string{networkName},
+		NetworkAliases: map[string][]string{networkName: {"workflowspostgres"}},
+		WaitingFor:     wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
+	}
+	workflowsPostgresContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: workflowsPostgresReq,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("failed to start workflows postgres container: %v", err)
+	}
+	t.Cleanup(func() {
+		dumpContainerLogs(t, ctx, workflowsPostgresContainer, "workflowsPostgres")
+	})
 }
 
 // dumpContainerLogs reads and logs all output from a container
