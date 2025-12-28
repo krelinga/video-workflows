@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/krelinga/video-info/virest"
+	"github.com/krelinga/video-transcoder/vtrest"
 	"github.com/krelinga/video-workflows/internal"
 	"github.com/krelinga/video-workflows/internal/vwactivity"
 	"github.com/krelinga/video-workflows/internal/workflows/vwdisc"
@@ -39,17 +41,21 @@ func mainImpl() error {
 	// Register activities
 	w.RegisterActivity(vwactivity.RenameFile)
 
-	// Register activities with dependencies
-	// Note: GetVideoInfo and Transcode require external clients which should be
-	// injected via their respective Deps structs. For now, registering with nil
-	// dependencies - these should be properly initialized in production.
+	viClient, err := virest.NewClientWithResponses(fmt.Sprintf("%s:%d", config.VideoInfoHost, config.VideoInfoPort))
+	if err != nil {
+		return fmt.Errorf("failed to create VideoInfo client: %w", err)
+	}
 	videoInfoDeps := &vwactivity.VideoInfoDeps{
-		Client: nil, // TODO: Initialize virest.Client
+		Client: viClient,
 	}
 	w.RegisterActivity(videoInfoDeps.GetVideoInfo)
 
+	tClient, err := vtrest.NewClientWithResponses(fmt.Sprintf("%s:%d", config.TranscodeHost, config.TranscodePort))
+	if err != nil {
+		return fmt.Errorf("failed to create VTRest client: %w", err)
+	}
 	transcodeDeps := &vwactivity.TranscodeDeps{
-		Client: nil, // TODO: Initialize vtrest.Client
+		Client: tClient,
 	}
 	w.RegisterActivity(transcodeDeps.Transcode)
 
