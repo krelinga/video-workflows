@@ -6,15 +6,13 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/krelinga/video-workflows/internal"
 	"github.com/krelinga/video-workflows/internal/vwactivity"
 	"github.com/krelinga/video-workflows/internal/workflows/vwdisc"
 	"github.com/krelinga/video-workflows/vwrest"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 )
-
-// TaskQueue is the Temporal task queue name for video workflows.
-const TaskQueue = "video-workflows"
 
 // Server implements the vwrest.StrictServerInterface for handling disc workflow REST API requests.
 type Server struct {
@@ -45,7 +43,7 @@ func (s *Server) CreateDisc(ctx context.Context, request vwrest.CreateDiscReques
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        request.Body.Uuid.String(),
-		TaskQueue: TaskQueue,
+		TaskQueue: internal.TaskQueue,
 	}
 
 	_, err := s.temporalClient.ExecuteWorkflow(ctx, workflowOptions, vwdisc.Workflow, params)

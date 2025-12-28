@@ -27,6 +27,11 @@ type ServerConfig struct {
 	LibraryPath string
 }
 
+type WorkerConfig struct {
+	Temporal    *TemporalConfig
+	// TODO: add worker-specific config fields here
+}
+
 func mustGetenv(key string) string {
 	value, ok := os.LookupEnv(key)
 	if !ok {
@@ -45,12 +50,22 @@ func mustGetenvInt(key string) int {
 	return value
 }
 
+func newTemporalConfigFromEnv() *TemporalConfig {
+	return &TemporalConfig{
+		Host: mustGetenv(EnvTemporalHost),
+		Port: mustGetenvInt(EnvTemporalPort),
+	}
+}
+
 func NewServerConfigFromEnv() *ServerConfig {
 	return &ServerConfig{
-		Temporal: &TemporalConfig{
-			Host: mustGetenv(EnvTemporalHost),
-			Port: mustGetenvInt(EnvTemporalPort),
-		},
+		Temporal: newTemporalConfigFromEnv(),
 		LibraryPath: mustGetenv(EnvLibraryPath),
+	}
+}
+
+func NewWorkerConfigFromEnv() *WorkerConfig {
+	return &WorkerConfig{
+		Temporal: newTemporalConfigFromEnv(),
 	}
 }
