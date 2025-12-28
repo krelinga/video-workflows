@@ -10,6 +10,7 @@ require (
 	github.com/oapi-codegen/runtime v1.1.2
 	go.temporal.io/api v1.54.0
 	go.temporal.io/sdk v1.38.0
+	golang.org/x/mod v0.31.0
 )
 
 require (
