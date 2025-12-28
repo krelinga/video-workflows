@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"golang.org/x/mod/modfile"
 
@@ -93,8 +94,8 @@ func TestEnd2End(t *testing.T) {
 		dumpContainerLogs(t, ctx, transcoderPostgresContainer, "transcoderPostgres")
 	})
 	transcoderServerReq := testcontainers.ContainerRequest{
-		Image:        "krelinga/video-transcoder:" + transcodeTag(t) + "-server",
-		Env: 		map[string]string{
+		Image: "krelinga/video-transcoder:" + transcodeTag(t) + "-server",
+		Env: map[string]string{
 			"VT_DB_HOST":     "transcoderPostgres",
 			"VT_DB_PORT":     "5432",
 			"VT_DB_USER":     dbUser,
@@ -102,9 +103,9 @@ func TestEnd2End(t *testing.T) {
 			"VT_DB_NAME":     transcoderDbName,
 			"VT_SERVER_PORT": "8080",
 		},
-		Networks: 	 []string{networkName},
+		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"transcoderserver"}},
-		WaitingFor: wait.ForLog("Starting HTTP server on port 8080"),
+		WaitingFor:     wait.ForLog("Starting HTTP server on port 8080"),
 	}
 	transcoderServerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: transcoderServerReq,
@@ -117,17 +118,17 @@ func TestEnd2End(t *testing.T) {
 		dumpContainerLogs(t, ctx, transcoderServerContainer, "transcoderServer")
 	})
 	transcoderWorkerReq := testcontainers.ContainerRequest{
-		Image:		"krelinga/video-transcoder:" + transcodeTag(t) + "-worker",
-		Env: 		map[string]string{
-			"VT_DB_HOST":        "transcoderPostgres",
-			"VT_DB_PORT":        "5432",
-			"VT_DB_USER":        dbUser,
-			"VT_DB_PASSWORD":    dbPassword,
-			"VT_DB_NAME":        transcoderDbName,
+		Image: "krelinga/video-transcoder:" + transcodeTag(t) + "-worker",
+		Env: map[string]string{
+			"VT_DB_HOST":     "transcoderPostgres",
+			"VT_DB_PORT":     "5432",
+			"VT_DB_USER":     dbUser,
+			"VT_DB_PASSWORD": dbPassword,
+			"VT_DB_NAME":     transcoderDbName,
 		},
-		Networks: 	 []string{networkName},
+		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"transcoderworker"}},
-		WaitingFor: wait.ForLog("Worker started"),
+		WaitingFor:     wait.ForLog("Worker started"),
 	}
 	transcoderWorkerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: transcoderWorkerReq,
@@ -165,8 +166,8 @@ func TestEnd2End(t *testing.T) {
 		dumpContainerLogs(t, ctx, videoInfoPostgresContainer, "videoInfoPostgres")
 	})
 	videoInfoServerReq := testcontainers.ContainerRequest{
-		Image:        "krelinga/video-info:" + videoInfoTag(t) + "-server",
-		Env: 		map[string]string{
+		Image: "krelinga/video-info:" + videoInfoTag(t) + "-server",
+		Env: map[string]string{
 			"VI_DB_HOST":     "videoinfopostgres",
 			"VI_DB_PORT":     "5432",
 			"VI_DB_USER":     dbUser,
@@ -174,9 +175,9 @@ func TestEnd2End(t *testing.T) {
 			"VI_DB_NAME":     videoInfoDbName,
 			"VI_SERVER_PORT": "8080",
 		},
-		Networks: 	 []string{networkName},
+		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"videoinfoserver"}},
-		WaitingFor: wait.ForLog("Starting HTTP server on port 8080"),
+		WaitingFor:     wait.ForLog("Starting HTTP server on port 8080"),
 	}
 	videoInfoServerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: videoInfoServerReq,
@@ -189,17 +190,17 @@ func TestEnd2End(t *testing.T) {
 		dumpContainerLogs(t, ctx, videoInfoServerContainer, "videoInfoServer")
 	})
 	videoInfoWorkerReq := testcontainers.ContainerRequest{
-		Image:		"krelinga/video-info:" + videoInfoTag(t) + "-worker",
-		Env: 		map[string]string{
-			"VI_DB_HOST":        "videoinfopostgres",
-			"VI_DB_PORT":        "5432",
-			"VI_DB_USER":        dbUser,
-			"VI_DB_PASSWORD":    dbPassword,
-			"VI_DB_NAME":        videoInfoDbName,
+		Image: "krelinga/video-info:" + videoInfoTag(t) + "-worker",
+		Env: map[string]string{
+			"VI_DB_HOST":     "videoinfopostgres",
+			"VI_DB_PORT":     "5432",
+			"VI_DB_USER":     dbUser,
+			"VI_DB_PASSWORD": dbPassword,
+			"VI_DB_NAME":     videoInfoDbName,
 		},
-		Networks: 	 []string{networkName},
+		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"videinfoworker"}},
-		WaitingFor: wait.ForLog("Worker started"),
+		WaitingFor:     wait.ForLog("Worker started"),
 	}
 	videoInfoWorkerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: videoInfoWorkerReq,
@@ -235,6 +236,32 @@ func TestEnd2End(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		dumpContainerLogs(t, ctx, workflowsPostgresContainer, "workflowsPostgres")
+	})
+
+	// Start Temporal server with auto-setup (bootstraps postgres schema)
+	temporalReq := testcontainers.ContainerRequest{
+		Image: "temporalio/auto-setup:latest",
+		Env: map[string]string{
+			"DB":             "postgres12",
+			"DB_PORT":        "5432",
+			"POSTGRES_USER":  dbUser,
+			"POSTGRES_PWD":   dbPassword,
+			"POSTGRES_SEEDS": "workflowspostgres",
+		},
+		ExposedPorts:   []string{"7233/tcp"},
+		Networks:       []string{networkName},
+		NetworkAliases: map[string][]string{networkName: {"temporal"}},
+		WaitingFor:     wait.ForLog("Temporal server started.").WithStartupTimeout(2 * time.Minute),
+	}
+	temporalContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: temporalReq,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("failed to start temporal container: %v", err)
+	}
+	t.Cleanup(func() {
+		dumpContainerLogs(t, ctx, temporalContainer, "temporal")
 	})
 }
 
