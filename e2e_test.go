@@ -116,6 +116,29 @@ func TestEnd2End(t *testing.T) {
 	t.Cleanup(func() {
 		dumpContainerLogs(t, ctx, transcoderServerContainer, "transcoderServer")
 	})
+	transcoderWorkerReq := testcontainers.ContainerRequest{
+		Image:		"krelinga/video-transcoder:" + transcodeTag(t) + "-worker",
+		Env: 		map[string]string{
+			"VT_DB_HOST":        "transcoderPostgres",
+			"VT_DB_PORT":        "5432",
+			"VT_DB_USER":        dbUser,
+			"VT_DB_PASSWORD":    dbPassword,
+			"VT_DB_NAME":        transcoderDbName,
+		},
+		Networks: 	 []string{networkName},
+		NetworkAliases: map[string][]string{networkName: {"transcoderworker"}},
+		WaitingFor: wait.ForLog("Worker started"),
+	}
+	transcoderWorkerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: transcoderWorkerReq,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("failed to start transcoder worker container: %v", err)
+	}
+	t.Cleanup(func() {
+		dumpContainerLogs(t, ctx, transcoderWorkerContainer, "transcoderWorker")
+	})
 
 	// Set up video info service and it's deps.
 	videoInfoDbName := "videoinfo"
