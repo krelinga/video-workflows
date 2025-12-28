@@ -188,6 +188,29 @@ func TestEnd2End(t *testing.T) {
 	t.Cleanup(func() {
 		dumpContainerLogs(t, ctx, videoInfoServerContainer, "videoInfoServer")
 	})
+	videoInfoWorkerReq := testcontainers.ContainerRequest{
+		Image:		"krelinga/video-info:" + videoInfoTag(t) + "-worker",
+		Env: 		map[string]string{
+			"VI_DB_HOST":        "videoinfopostgres",
+			"VI_DB_PORT":        "5432",
+			"VI_DB_USER":        dbUser,
+			"VI_DB_PASSWORD":    dbPassword,
+			"VI_DB_NAME":        videoInfoDbName,
+		},
+		Networks: 	 []string{networkName},
+		NetworkAliases: map[string][]string{networkName: {"videinfoworker"}},
+		WaitingFor: wait.ForLog("Worker started"),
+	}
+	videoInfoWorkerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: videoInfoWorkerReq,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("failed to start video info worker container: %v", err)
+	}
+	t.Cleanup(func() {
+		dumpContainerLogs(t, ctx, videoInfoWorkerContainer, "videoInfoWorker")
+	})
 }
 
 // dumpContainerLogs reads and logs all output from a container
