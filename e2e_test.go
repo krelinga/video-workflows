@@ -1,10 +1,16 @@
 package videoworkflows
 
 import (
+	"context"
+	"io"
 	"os"
 	"testing"
 
 	"golang.org/x/mod/modfile"
+
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/network"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func readModfile(t *testing.T) *modfile.File {
@@ -50,4 +56,131 @@ func videoInfoTag(t *testing.T) string {
 func TestEnd2End(t *testing.T) {
 	t.Logf("Using video-transcoder version: %s", transcodeTag(t))
 	t.Logf("Using video-info version: %s", videoInfoTag(t))
+
+	ctx := context.Background()
+
+	// Create Docker network
+	net, err := network.New(ctx, network.WithCheckDuplicate())
+	if err != nil {
+		t.Fatalf("failed to create network: %v", err)
+	}
+	networkName := net.Name
+
+	// Set up transcoder service and it's deps.
+	transcoderDbName := "videotranscoder"
+	const dbUser = "postgres"
+	const dbPassword = "postgres"
+	transcoderPostgresReq := testcontainers.ContainerRequest{
+		Image:        "postgres:16",
+		ExposedPorts: []string{"5432/tcp"},
+		Env: map[string]string{
+			"POSTGRES_DB":       transcoderDbName,
+			"POSTGRES_USER":     dbUser,
+			"POSTGRES_PASSWORD": dbPassword,
+		},
+		Networks:       []string{networkName},
+		NetworkAliases: map[string][]string{networkName: {"transcoderPostgres"}},
+		WaitingFor:     wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
+	}
+	transcoderPostgresContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: transcoderPostgresReq,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("failed to start postgres container: %v", err)
+	}
+	t.Cleanup(func() {
+		dumpContainerLogs(t, ctx, transcoderPostgresContainer, "transcoderPostgres")
+	})
+	transcoderServerReq := testcontainers.ContainerRequest{
+		Image:        "krelinga/video-transcoder:" + transcodeTag(t) + "-server",
+		Env: 		map[string]string{
+			"VT_DB_HOST":     "transcoderPostgres",
+			"VT_DB_PORT":     "5432",
+			"VT_DB_USER":     dbUser,
+			"VT_DB_PASSWORD": dbPassword,
+			"VT_DB_NAME":     transcoderDbName,
+			"VT_SERVER_PORT": "8080",
+		},
+		Networks: 	 []string{networkName},
+		NetworkAliases: map[string][]string{networkName: {"transcoderserver"}},
+		WaitingFor: wait.ForLog("Starting HTTP server on port 8080"),
+	}
+	transcoderServerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: transcoderServerReq,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("failed to start transcoder server container: %v", err)
+	}
+	t.Cleanup(func() {
+		dumpContainerLogs(t, ctx, transcoderServerContainer, "transcoderServer")
+	})
+
+	// Set up video info service and it's deps.
+	videoInfoDbName := "videoinfo"
+	videoInfoPostgresReq := testcontainers.ContainerRequest{
+		Image:        "postgres:16",
+		ExposedPorts: []string{"5432/tcp"},
+		Env: map[string]string{
+			"POSTGRES_DB":       videoInfoDbName,
+			"POSTGRES_USER":     dbUser,
+			"POSTGRES_PASSWORD": dbPassword,
+		},
+		Networks:       []string{networkName},
+		NetworkAliases: map[string][]string{networkName: {"videoinfopostgres"}},
+		WaitingFor:     wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
+	}
+	videoInfoPostgresContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: videoInfoPostgresReq,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("failed to start video info postgres container: %v", err)
+	}
+	t.Cleanup(func() {
+		dumpContainerLogs(t, ctx, videoInfoPostgresContainer, "videoInfoPostgres")
+	})
+	videoInfoServerReq := testcontainers.ContainerRequest{
+		Image:        "krelinga/video-info:" + videoInfoTag(t) + "-server",
+		Env: 		map[string]string{
+			"VI_DB_HOST":     "videoinfopostgres",
+			"VI_DB_PORT":     "5432",
+			"VI_DB_USER":     dbUser,
+			"VI_DB_PASSWORD": dbPassword,
+			"VI_DB_NAME":     videoInfoDbName,
+			"VI_SERVER_PORT": "8080",
+		},
+		Networks: 	 []string{networkName},
+		NetworkAliases: map[string][]string{networkName: {"videoinfoserver"}},
+		WaitingFor: wait.ForLog("Starting HTTP server on port 8080"),
+	}
+	videoInfoServerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: videoInfoServerReq,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("failed to start video info server container: %v", err)
+	}
+	t.Cleanup(func() {
+		dumpContainerLogs(t, ctx, videoInfoServerContainer, "videoInfoServer")
+	})
+}
+
+// dumpContainerLogs reads and logs all output from a container
+func dumpContainerLogs(t *testing.T, ctx context.Context, container testcontainers.Container, name string) {
+	logs, err := container.Logs(ctx)
+	if err != nil {
+		t.Logf("failed to get %s container logs: %v", name, err)
+		return
+	}
+	defer logs.Close()
+
+	logBytes, err := io.ReadAll(logs)
+	if err != nil {
+		t.Logf("failed to read %s container logs: %v", name, err)
+		return
+	}
+
+	t.Logf("=== %s container logs ===\n%s", name, string(logBytes))
 }
