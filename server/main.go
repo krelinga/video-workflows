@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/krelinga/video-workflows/internal"
 	"go.temporal.io/sdk/client"
 )
 
@@ -15,9 +16,11 @@ func main() {
 }
 
 func mainImpl() error {
+	config := internal.NewServerConfigFromEnv()
+
 	// Create Temporal client
 	temporalClient, err := client.Dial(client.Options{
-		HostPort: client.DefaultHostPort,
+		HostPort: fmt.Sprintf("%s:%d", config.Temporal.Host, config.Temporal.Port),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create Temporal client: %w", err)
@@ -25,7 +28,7 @@ func mainImpl() error {
 	defer temporalClient.Close()
 
 	// Create server with library path
-	srv := NewServer(temporalClient, "foo/bar")
+	srv := NewServer(temporalClient, config.LibraryPath)
 
 	// Start HTTP server
 	addr := ":8080"
