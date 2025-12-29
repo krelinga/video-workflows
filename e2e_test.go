@@ -12,7 +12,9 @@ import (
 	"golang.org/x/mod/modfile"
 
 	"github.com/docker/docker/api/types/build"
+	"github.com/google/uuid"
 	"github.com/krelinga/video-workflows/vwrest"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -68,9 +70,21 @@ func TestEnd2End(t *testing.T) {
 		t.Fatalf("failed to create temp directory: %v", err)
 	}
 
+	// Create inbox directory
+	inboxPath := inboxDir(tempDir)
+	if err := os.MkdirAll(inboxPath, 0o755); err != nil {
+		t.Fatalf("failed to create inbox directory: %v", err)
+	}
+
+	// Create inbox disk directory
+	inboxDiskPath := filepath.Join(inboxPath, "disk1")
+	if err := os.MkdirAll(inboxDiskPath, 0o755); err != nil {
+		t.Fatalf("failed to create inbox disk directory: %v", err)
+	}
+
 	// Copy test file to temp directory
 	srcFile := "testdata/testdata_sample_640x360.mkv"
-	dstFile := filepath.Join(tempDir, "testdata_sample_640x360.mkv")
+	dstFile := filepath.Join(inboxDiskPath, "testdata_sample_640x360.mkv")
 	if err := copyFile(srcFile, dstFile); err != nil {
 		t.Fatalf("failed to copy test file: %v", err)
 	}
@@ -85,7 +99,62 @@ func TestEnd2End(t *testing.T) {
 	}
 
 	t.Logf("Successfully connected to server at %s", serverHostPort)
-	_ = client // TODO: Use client to make API requests
+
+	// Create a new Disc workflow with a UUID
+	workflowUUID := openapi_types.UUID(uuid.New())
+	createResp, err := client.CreateDiscWithResponse(ctx, vwrest.CreateDiscRequest{
+		Uuid: workflowUUID,
+		Path: inboxDiskPath,
+	})
+	if err != nil {
+		t.Fatalf("failed to create disc workflow: %v", err)
+	}
+	if createResp.StatusCode() != 201 {
+		t.Fatalf("expected status 201, got %d: %s", createResp.StatusCode(), string(createResp.Body))
+	}
+	t.Logf("Created disc workflow with UUID: %s", workflowUUID)
+
+	// Poll GetDisc until status reaches "directory_moved" with 1 minute timeout
+	timeout := time.After(1 * time.Minute)
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	foundStatus := false
+	for !foundStatus {
+		select {
+		case <-timeout:
+			t.Fatalf("timeout waiting for workflow status to reach 'directory_moved'")
+		case <-ticker.C:
+			getResp, err := client.GetDiscWithResponse(ctx, workflowUUID)
+			if err != nil {
+				t.Fatalf("failed to get disc workflow: %v", err)
+			}
+			if getResp.StatusCode() != 200 {
+				t.Fatalf("expected status 200, got %d: %s", getResp.StatusCode(), string(getResp.Body))
+			}
+			status := getResp.JSON200.Status
+			t.Logf("Workflow status: %s", status)
+			if status == "directory_moved" {
+				t.Logf("Workflow reached 'directory_moved' status")
+				foundStatus = true
+			}
+		}
+	}
+
+	renamedDiscPath := filepath.Join(libraryDir(tempDir), workflowUUID.String())
+
+	// Verify renamedDiscPath exists
+	if _, err := os.Stat(renamedDiscPath); os.IsNotExist(err) {
+		t.Fatalf("renamed disc path does not exist: %s", renamedDiscPath)
+	}
+	t.Logf("Renamed disc path exists: %s", renamedDiscPath)
+
+	// Verify the test file exists in renamedDiscPath
+	expectedFile := filepath.Join(renamedDiscPath, "testdata_sample_640x360.mkv")
+	if _, err := os.Stat(expectedFile); os.IsNotExist(err) {
+		t.Fatalf("expected file does not exist: %s", expectedFile)
+	}
+	t.Logf("Test file exists in renamed disc path: %s", expectedFile)
 }
 
 // dumpContainerLogs reads and logs all output from a container
@@ -108,6 +177,10 @@ func dumpContainerLogs(t *testing.T, ctx context.Context, container testcontaine
 
 func libraryDir(tempDir string) string {
 	return filepath.Join(tempDir, "library")
+}
+
+func inboxDir(tempDir string) string {
+	return filepath.Join(tempDir, "inbox")
 }
 
 // setup starts the various container that are necessary for this test.
