@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/mod/modfile"
 
+	"github.com/docker/docker/api/types/build"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -262,6 +263,40 @@ func TestEnd2End(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		dumpContainerLogs(t, ctx, temporalContainer, "temporal")
+	})
+
+	// Build and start worker container.
+	workerReq := testcontainers.ContainerRequest{
+		FromDockerfile: testcontainers.FromDockerfile{
+			Context:    ".",
+			Dockerfile: "Dockerfile",
+			BuildArgs:  map[string]*string{},
+			BuildOptionsModifier: func(buildOptions *build.ImageBuildOptions) {
+				buildOptions.Target = "worker"
+			},
+		},
+		ExposedPorts:   []string{"8080/tcp"},
+		Env:            map[string]string{
+			"VW_TEMPORAL_HOST":   "temporal",
+			"VW_TEMPORAL_PORT":   "7233",
+			"VW_TRANSCODE_HOST":  "transcoderserver",
+			"VW_TRANSCODE_PORT":  "8080",
+			"VW_VIDEOINFO_HOST":  "videoinfoserver",
+			"VW_VIDEOINFO_PORT":  "8080",
+		},
+		Networks:       []string{networkName},
+		NetworkAliases: map[string][]string{networkName: {"worker"}},
+		WaitingFor:     wait.ForLog("Starting worker on task queue"),
+	}
+	workerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: workerReq,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("failed to start worker container: %v", err)
+	}
+	t.Cleanup(func() {
+		dumpContainerLogs(t, ctx, workerContainer, "worker")
 	})
 }
 
