@@ -12,6 +12,7 @@ import (
 	"golang.org/x/mod/modfile"
 
 	"github.com/docker/docker/api/types/build"
+	"github.com/krelinga/video-workflows/vwrest"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -75,7 +76,16 @@ func TestEnd2End(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	setup(t, ctx, tempDir)
+	serverHostPort := setup(t, ctx, tempDir)
+
+	// Create client to connect to the server
+	client, err := vwrest.NewClientWithResponses("http://" + serverHostPort)
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	t.Logf("Successfully connected to server at %s", serverHostPort)
+	_ = client // TODO: Use client to make API requests
 }
 
 // dumpContainerLogs reads and logs all output from a container
@@ -170,7 +180,7 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 		Mounts: testcontainers.Mounts(
 			testcontainers.BindMount(tempDir, "/nas/media"),
 		),
-		WaitingFor:     wait.ForLog("Worker started"),
+		WaitingFor: wait.ForLog("Worker started"),
 	}
 	transcoderWorkerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: transcoderWorkerReq,
@@ -319,14 +329,14 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 				buildOptions.Target = "worker"
 			},
 		},
-		ExposedPorts:   []string{"8080/tcp"},
-		Env:            map[string]string{
-			"VW_TEMPORAL_HOST":   "temporal",
-			"VW_TEMPORAL_PORT":   "7233",
-			"VW_TRANSCODE_HOST":  "transcoderserver",
-			"VW_TRANSCODE_PORT":  "8080",
-			"VW_VIDEOINFO_HOST":  "videoinfoserver",
-			"VW_VIDEOINFO_PORT":  "8080",
+		ExposedPorts: []string{"8080/tcp"},
+		Env: map[string]string{
+			"VW_TEMPORAL_HOST":  "temporal",
+			"VW_TEMPORAL_PORT":  "7233",
+			"VW_TRANSCODE_HOST": "transcoderserver",
+			"VW_TRANSCODE_PORT": "8080",
+			"VW_VIDEOINFO_HOST": "videoinfoserver",
+			"VW_VIDEOINFO_PORT": "8080",
 		},
 		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"worker"}},
@@ -353,11 +363,11 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 				buildOptions.Target = "server"
 			},
 		},
-		ExposedPorts:   []string{"8080/tcp"},
-		Env:            map[string]string{
-			"VW_TEMPORAL_HOST":   "temporal",
-			"VW_TEMPORAL_PORT":   "7233",
-			"VW_LIBRARY_PATH":    "/data/library", // TODO: mount a volume here and add test files
+		ExposedPorts: []string{"8080/tcp"},
+		Env: map[string]string{
+			"VW_TEMPORAL_HOST": "temporal",
+			"VW_TEMPORAL_PORT": "7233",
+			"VW_LIBRARY_PATH":  "/data/library", // TODO: mount a volume here and add test files
 		},
 		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"server"}},
