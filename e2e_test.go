@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -157,7 +158,7 @@ func TestEnd2End(t *testing.T) {
 	t.Logf("Test file exists in renamed disc path: %s", expectedFile)
 }
 
-// dumpContainerLogs reads and logs all output from a container
+// dumpContainerLogs reads and logs the last 20 lines of output from a container
 func dumpContainerLogs(t *testing.T, ctx context.Context, container testcontainers.Container, name string) {
 	logs, err := container.Logs(ctx)
 	if err != nil {
@@ -172,7 +173,15 @@ func dumpContainerLogs(t *testing.T, ctx context.Context, container testcontaine
 		return
 	}
 
-	t.Logf("=== %s container logs ===\n%s", name, string(logBytes))
+	// Split logs by newlines and get the last 20 lines
+	lines := strings.Split(strings.TrimSpace(string(logBytes)), "\n")
+	startIdx := 0
+	if len(lines) > 20 {
+		startIdx = len(lines) - 20
+	}
+	lastLines := strings.Join(lines[startIdx:], "\n")
+
+	t.Logf("=== %s container logs (last 20 lines) ===\n%s", name, lastLines)
 }
 
 func libraryDir(tempDir string) string {
