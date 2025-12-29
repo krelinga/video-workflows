@@ -105,7 +105,7 @@ func TestEnd2End(t *testing.T) {
 	workflowUUID := openapi_types.UUID(uuid.New())
 	createResp, err := client.CreateDiscWithResponse(ctx, vwrest.CreateDiscRequest{
 		Uuid: workflowUUID,
-		Path: inboxDiskPath,
+		Path: "/nas/media/inbox/disk1",
 	})
 	if err != nil {
 		t.Fatalf("failed to create disc workflow: %v", err)
@@ -115,8 +115,8 @@ func TestEnd2End(t *testing.T) {
 	}
 	t.Logf("Created disc workflow with UUID: %s", workflowUUID)
 
-	// Poll GetDisc until status reaches "directory_moved" with 1 minute timeout
-	timeout := time.After(1 * time.Minute)
+	// Poll GetDisc until status reaches "directory_moved" with 20 second timeout
+	timeout := time.After(20 * time.Second)
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -432,7 +432,10 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 		},
 		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"worker"}},
-		WaitingFor:     wait.ForLog("Starting worker on task queue"),
+		Mounts: testcontainers.Mounts(
+			testcontainers.BindMount(tempDir, "/nas/media"),
+		),
+		WaitingFor: wait.ForLog("Starting worker on task queue"),
 	}
 	workerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: workerReq,
@@ -459,7 +462,7 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 		Env: map[string]string{
 			"VW_TEMPORAL_HOST": "temporal",
 			"VW_TEMPORAL_PORT": "7233",
-			"VW_LIBRARY_PATH":  libraryPath,
+			"VW_LIBRARY_PATH":  "/nas/media/library",
 		},
 		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"server"}},
