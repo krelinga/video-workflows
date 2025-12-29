@@ -2,6 +2,7 @@ package videoworkflows
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -74,7 +75,30 @@ func TestEnd2End(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	setup(t, ctx, tempDir)
+}
 
+// dumpContainerLogs reads and logs all output from a container
+func dumpContainerLogs(t *testing.T, ctx context.Context, container testcontainers.Container, name string) {
+	logs, err := container.Logs(ctx)
+	if err != nil {
+		t.Logf("failed to get %s container logs: %v", name, err)
+		return
+	}
+	defer logs.Close()
+
+	logBytes, err := io.ReadAll(logs)
+	if err != nil {
+		t.Logf("failed to read %s container logs: %v", name, err)
+		return
+	}
+
+	t.Logf("=== %s container logs ===\n%s", name, string(logBytes))
+}
+
+// setup starts the various container that are necessary for this test.
+// It returns a host:port string for the workflow server.
+func setup(t *testing.T, ctx context.Context, tempDir string) string {
 	// Create Docker network
 	net, err := network.New(ctx, network.WithCheckDuplicate())
 	if err != nil {
@@ -349,24 +373,17 @@ func TestEnd2End(t *testing.T) {
 	t.Cleanup(func() {
 		dumpContainerLogs(t, ctx, serverContainer, "server")
 	})
-}
 
-// dumpContainerLogs reads and logs all output from a container
-func dumpContainerLogs(t *testing.T, ctx context.Context, container testcontainers.Container, name string) {
-	logs, err := container.Logs(ctx)
+	host, err := serverContainer.Host(ctx)
 	if err != nil {
-		t.Logf("failed to get %s container logs: %v", name, err)
-		return
+		t.Fatalf("failed to get server container host: %v", err)
 	}
-	defer logs.Close()
-
-	logBytes, err := io.ReadAll(logs)
+	port, err := serverContainer.MappedPort(ctx, "8080")
 	if err != nil {
-		t.Logf("failed to read %s container logs: %v", name, err)
-		return
+		t.Fatalf("failed to get server container port: %v", err)
 	}
 
-	t.Logf("=== %s container logs ===\n%s", name, string(logBytes))
+	return fmt.Sprintf("%s:%s", host, port.Port())
 }
 
 // copyFile copies a file from src to dst
