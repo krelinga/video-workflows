@@ -150,3 +150,44 @@ func (s *Server) TranscodeActivityHeartbeat(ctx context.Context, request vwrest.
 
 	return vwrest.TranscodeActivityHeartbeat200Response{}, nil
 }
+
+// GetDisc retrieves the current state of a disc workflow by UUID.
+func (s *Server) GetDisc(ctx context.Context, request vwrest.GetDiscRequestObject) (vwrest.GetDiscResponseObject, error) {
+	workflowID := request.Uuid.String()
+
+	// Query the workflow state
+	resp, err := s.temporalClient.QueryWorkflow(ctx, workflowID, "", vwdisc.QueryGetState)
+	if err != nil {
+		var notFoundErr *serviceerror.NotFound
+		if errors.As(err, &notFoundErr) {
+			return vwrest.GetDisc404JSONResponse{
+				Code:    "NOT_FOUND",
+				Message: fmt.Sprintf("workflow with UUID %s not found", workflowID),
+			}, nil
+		}
+		return vwrest.GetDisc500JSONResponse{
+			Code:    "INTERNAL_ERROR",
+			Message: fmt.Sprintf("failed to query workflow: %v", err),
+		}, nil
+	}
+
+	var state vwdisc.State
+	if err := resp.Get(&state); err != nil {
+		return vwrest.GetDisc500JSONResponse{
+			Code:    "INTERNAL_ERROR",
+			Message: fmt.Sprintf("failed to decode workflow state: %v", err),
+		}, nil
+	}
+
+	// Derive status from state
+	status := "running"
+	if state.DirectoryMoved {
+		status = "directory_moved"
+	}
+
+	return vwrest.GetDisc200JSONResponse{
+		Uuid:   request.Uuid,
+		Path:   "", // Path is not stored in state, could be retrieved from workflow info if needed
+		Status: status,
+	}, nil
+}

@@ -132,6 +132,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /disc/{uuid}:
+    get:
+      summary: Get disc workflow status
+      description: Returns the current state of a disc workflow by UUID
+      operationId: getDisc
+      tags:
+        - disc
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: UUID of the disc workflow
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Disc workflow found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscWorkflow'
+        '404':
+          description: Disc workflow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   schemas:
     CompleteGetVideoInfoActivityRequest:
