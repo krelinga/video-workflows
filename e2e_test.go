@@ -298,6 +298,37 @@ func TestEnd2End(t *testing.T) {
 	t.Cleanup(func() {
 		dumpContainerLogs(t, ctx, workerContainer, "worker")
 	})
+
+	// Build and start server container.
+	serverReq := testcontainers.ContainerRequest{
+		FromDockerfile: testcontainers.FromDockerfile{
+			Context:    ".",
+			Dockerfile: "Dockerfile",
+			BuildArgs:  map[string]*string{},
+			BuildOptionsModifier: func(buildOptions *build.ImageBuildOptions) {
+				buildOptions.Target = "server"
+			},
+		},
+		ExposedPorts:   []string{"8080/tcp"},
+		Env:            map[string]string{
+			"VW_TEMPORAL_HOST":   "temporal",
+			"VW_TEMPORAL_PORT":   "7233",
+			"VW_LIBRARY_PATH":    "/data/library", // TODO: mount a volume here and add test files
+		},
+		Networks:       []string{networkName},
+		NetworkAliases: map[string][]string{networkName: {"server"}},
+		WaitingFor:     wait.ForLog("Starting server on :8080"),
+	}
+	serverContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: serverReq,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("failed to start server container: %v", err)
+	}
+	t.Cleanup(func() {
+		dumpContainerLogs(t, ctx, serverContainer, "server")
+	})
 }
 
 // dumpContainerLogs reads and logs all output from a container
