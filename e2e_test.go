@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -58,6 +59,19 @@ func videoInfoTag(t *testing.T) string {
 func TestEnd2End(t *testing.T) {
 	t.Logf("Using video-transcoder version: %s", transcodeTag(t))
 	t.Logf("Using video-info version: %s", videoInfoTag(t))
+
+	// Create temp directory for media files
+	tempDir, err := os.MkdirTemp("", "transcode-e2e-*")
+	if err != nil {
+		t.Fatalf("failed to create temp directory: %v", err)
+	}
+
+	// Copy test file to temp directory
+	srcFile := "testdata/testdata_sample_640x360.mkv"
+	dstFile := filepath.Join(tempDir, "testdata_sample_640x360.mkv")
+	if err := copyFile(srcFile, dstFile); err != nil {
+		t.Fatalf("failed to copy test file: %v", err)
+	}
 
 	ctx := context.Background()
 
@@ -129,6 +143,9 @@ func TestEnd2End(t *testing.T) {
 		},
 		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"transcoderworker"}},
+		Mounts: testcontainers.Mounts(
+			testcontainers.BindMount(tempDir, "/nas/media"),
+		),
 		WaitingFor:     wait.ForLog("Worker started"),
 	}
 	transcoderWorkerContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -199,6 +216,9 @@ func TestEnd2End(t *testing.T) {
 			"VI_DB_PASSWORD": dbPassword,
 			"VI_DB_NAME":     videoInfoDbName,
 		},
+		Mounts: testcontainers.Mounts(
+			testcontainers.BindMount(tempDir, "/nas/media"),
+		),
 		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"videinfoworker"}},
 		WaitingFor:     wait.ForLog("Worker started"),
@@ -347,4 +367,22 @@ func dumpContainerLogs(t *testing.T, ctx context.Context, container testcontaine
 	}
 
 	t.Logf("=== %s container logs ===\n%s", name, string(logBytes))
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	return err
 }
