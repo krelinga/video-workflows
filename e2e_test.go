@@ -106,9 +106,19 @@ func dumpContainerLogs(t *testing.T, ctx context.Context, container testcontaine
 	t.Logf("=== %s container logs ===\n%s", name, string(logBytes))
 }
 
+func libraryDir(tempDir string) string {
+	return filepath.Join(tempDir, "library")
+}
+
 // setup starts the various container that are necessary for this test.
 // It returns a host:port string for the workflow server.
 func setup(t *testing.T, ctx context.Context, tempDir string) string {
+	// Create library directory.
+	libraryPath := libraryDir(tempDir)
+	if err := os.MkdirAll(libraryPath, 0o755); err != nil {
+		t.Fatalf("failed to create library directory: %v", err)
+	}
+
 	// Create Docker network
 	net, err := network.New(ctx, network.WithCheckDuplicate())
 	if err != nil {
@@ -367,7 +377,7 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 		Env: map[string]string{
 			"VW_TEMPORAL_HOST": "temporal",
 			"VW_TEMPORAL_PORT": "7233",
-			"VW_LIBRARY_PATH":  "/data/library", // TODO: mount a volume here and add test files
+			"VW_LIBRARY_PATH":  libraryPath,
 		},
 		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"server"}},
