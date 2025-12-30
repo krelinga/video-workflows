@@ -115,7 +115,7 @@ func TestEnd2End(t *testing.T) {
 	}
 	t.Logf("Created disc workflow with UUID: %s", workflowUUID)
 
-	// Poll GetDisc until status reaches "files_listed" with 20 second timeout
+	// Poll GetDisc until status reaches "got_file_durations" with 20 second timeout
 	timeout := time.After(20 * time.Second)
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -124,7 +124,7 @@ func TestEnd2End(t *testing.T) {
 	for getResp == nil {
 		select {
 		case <-timeout:
-			t.Fatalf("timeout waiting for workflow status to reach 'directory_moved'")
+			t.Fatalf("timeout waiting for workflow status to reach 'got_file_durations'")
 		case <-ticker.C:
 			thisGetResp, err := client.GetDiscWithResponse(ctx, workflowUUID)
 			if err != nil {
@@ -135,8 +135,8 @@ func TestEnd2End(t *testing.T) {
 			}
 			status := thisGetResp.JSON200.Status
 			t.Logf("Workflow status: %s", status)
-			if status == "files_listed" {
-				t.Logf("Workflow reached 'files_listed' status")
+			if status == "got_file_durations" {
+				t.Logf("Workflow reached 'got_file_durations' status")
 				getResp = thisGetResp
 			}
 		}
@@ -160,16 +160,23 @@ func TestEnd2End(t *testing.T) {
 	t.Logf("Test file exists in renamed disc path: %s", expectedFile)
 
 	// Verify GetDisc response contains the file
-	found := false
+	var discWorkflowFile *vwrest.DiscWorkflowFile
 	expectedNasFile := "/nas/media/library/" + workflowUUID.String() + "/testdata_sample_640x360.mkv"
 	for _, file := range getResp.JSON200.Files {
 		if file.Filename == expectedNasFile {
-			found = true
+			discWorkflowFile = &file
 			break
 		}
 	}
-	if !found {
+	if discWorkflowFile == nil {
 		t.Fatalf("GetDisc response does not contain expected file: %s", expectedNasFile)
+	}
+
+	t.Logf("GetDisc response contains expected file: %s", discWorkflowFile.Filename)
+	if discWorkflowFile.DurationSeconds == nil {
+		t.Fatalf("GetDisc response file DurationSeconds is nil")
+	} else if *discWorkflowFile.DurationSeconds <= 0 {
+		t.Fatalf("GetDisc response file DurationSeconds is not positive: %f", *discWorkflowFile.DurationSeconds)
 	}
 }
 
@@ -440,9 +447,9 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 		Env: map[string]string{
 			"VW_TEMPORAL_HOST":  "temporal",
 			"VW_TEMPORAL_PORT":  "7233",
-			"VW_TRANSCODE_HOST": "transcoderserver",
+			"VW_TRANSCODE_HOST": "http://transcoderserver",
 			"VW_TRANSCODE_PORT": "8080",
-			"VW_VIDEOINFO_HOST": "videoinfoserver",
+			"VW_VIDEOINFO_HOST": "http://videoinfoserver",
 			"VW_VIDEOINFO_PORT": "8080",
 		},
 		Networks:       []string{networkName},
@@ -475,9 +482,10 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 		},
 		ExposedPorts: []string{"8080/tcp"},
 		Env: map[string]string{
-			"VW_TEMPORAL_HOST": "temporal",
-			"VW_TEMPORAL_PORT": "7233",
-			"VW_LIBRARY_PATH":  "/nas/media/library",
+			"VW_TEMPORAL_HOST":    "temporal",
+			"VW_TEMPORAL_PORT":    "7233",
+			"VW_LIBRARY_PATH":     "/nas/media/library",
+			"VW_WEBHOOK_BASE_URI": "http://server:8080/activity",
 		},
 		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"server"}},

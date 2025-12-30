@@ -8,24 +8,29 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 
+	"github.com/google/uuid"
 	"github.com/krelinga/video-workflows/internal/vwactivity"
 )
 
 type Params struct {
-	UUID        string `json:"uuid"`
-	Path        string `json:"path"`
-	LibraryPath string `json:"library_path"`
+	UUID           string `json:"uuid"`
+	Path           string `json:"path"`
+	LibraryPath    string `json:"library_path"`
+	WebhookBaseURI string `json:"webhook_base_uri"`
 }
 
 type State struct {
-	DirectoryMoved bool                 `json:"directory_moved"`
-	Files          map[string]FileState `json:"files,omitempty"`
-	FilesListed    bool                 `json:"files_listed"`
+	DirectoryMoved   bool                 `json:"directory_moved"`
+	Files            map[string]FileState `json:"files,omitempty"`
+	FilesListed      bool                 `json:"files_listed"`
+	GotFileDurations bool                 `json:"got_file_durations"`
 }
 
 type FileState struct {
-	ScreenshotPath *string       `json:"screenshot_path,omitempty"`
-	Category       *FileCategory `json:"category,omitempty"`
+	DurationSeconds         float64       `json:"duration_seconds,omitempty"`
+	ChapterDurationsSeconds []float64     `json:"chapter_durations_seconds,omitempty"`
+	ScreenshotPath          *string       `json:"screenshot_path,omitempty"`
+	Category                *FileCategory `json:"category,omitempty"`
 }
 
 type FileCategory string
@@ -86,6 +91,41 @@ func Workflow(ctx workflow.Context, params Params) (State, error) {
 	}
 	state.FilesListed = true
 
+	// For each file, get it's info and update state.
+	getVideoInfoCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: 2 * time.Minute,
+	})
+	videoInfoSelect := workflow.NewSelector(ctx)
+	for videoPath := range state.Files {
+		var uuid string
+		if err := workflow.SideEffect(ctx, newUUID).Get(&uuid); err != nil {
+			return state, fmt.Errorf("failed to generate UUID for video info activity: %w", err)
+		}
+		params := vwactivity.GetVideoInfoParams{
+			Uuid:               uuid,
+			VideoPath:          videoPath,
+			WebhookCompleteURI: params.WebhookBaseURI + "/get_video_info/complete",
+		}
+		var infoDeps *vwactivity.VideoInfoDeps
+		future := workflow.ExecuteActivity(getVideoInfoCtx, infoDeps.GetVideoInfo, params)
+		videoInfoSelect.AddFuture(future, func(f workflow.Future) {
+			var info vwactivity.VideoInfo
+			err := f.Get(getVideoInfoCtx, &info)
+			if err != nil {
+				logger.Error("Failed to get video info", "videoPath", videoPath, "error", err)
+				return
+			}
+			fileState := state.Files[videoPath]
+			fileState.DurationSeconds = info.DurationSeconds
+			fileState.ChapterDurationsSeconds = info.ChapterDurations
+			state.Files[videoPath] = fileState
+		})
+	}
+	for range state.Files {
+		videoInfoSelect.Select(ctx)
+	}
+	state.GotFileDurations = true
+
 	// TODO: For each file, generate a screenshot and update the state.
 
 	// TODO: Wait for the user to categorize each file and update the state.
@@ -95,4 +135,8 @@ func Workflow(ctx workflow.Context, params Params) (State, error) {
 	// TODO: Transcode main title.
 
 	return state, nil
+}
+
+func newUUID(ctx workflow.Context) any {
+	return uuid.New().String()
 }

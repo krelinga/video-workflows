@@ -6,7 +6,7 @@ require (
 	github.com/docker/docker v28.5.1+incompatible
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/google/uuid v1.6.0
-	github.com/krelinga/video-info v0.0.1
+	github.com/krelinga/video-info v0.0.2
 	github.com/krelinga/video-transcoder v0.0.4
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/testcontainers/testcontainers-go v0.40.0

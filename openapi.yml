@@ -287,15 +287,15 @@ components:
       type: object
       required:
         - filename
-        - sizeBytes
       properties:
         filename:
           type: string
           example: video.mp4
-        sizeBytes:
-          type: integer
-          format: int64
-          example: 1048576000
+        durationSeconds:
+          type: number
+          format: double
+          example: 3600.5
+          description: Duration of the video file in seconds.
     
     DiscWorkflow:
       type: object

@@ -28,7 +28,7 @@ func mainImpl() error {
 	defer temporalClient.Close()
 
 	// Create server with library path
-	srv := NewServer(temporalClient, config.LibraryPath)
+	srv := NewServer(temporalClient, config.LibraryPath, config)
 
 	// Start HTTP server
 	addr := ":8080"

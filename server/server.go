@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/krelinga/video-workflows/internal"
@@ -18,13 +19,15 @@ import (
 type Server struct {
 	temporalClient client.Client
 	libraryPath    string
+	config         *internal.ServerConfig
 }
 
 // NewServer creates a new Server with the given Temporal client and library path.
-func NewServer(temporalClient client.Client, libraryPath string) *Server {
+func NewServer(temporalClient client.Client, libraryPath string, config *internal.ServerConfig) *Server {
 	return &Server{
 		temporalClient: temporalClient,
 		libraryPath:    libraryPath,
+		config:         config,
 	}
 }
 
@@ -36,9 +39,10 @@ func (s *Server) Handler() http.Handler {
 // CreateDisc starts a new disc workflow with the given UUID and path.
 func (s *Server) CreateDisc(ctx context.Context, request vwrest.CreateDiscRequestObject) (vwrest.CreateDiscResponseObject, error) {
 	params := vwdisc.Params{
-		UUID:        request.Body.Uuid.String(),
-		Path:        request.Body.Path,
-		LibraryPath: s.libraryPath,
+		UUID:           request.Body.Uuid.String(),
+		Path:           request.Body.Path,
+		LibraryPath:    s.libraryPath,
+		WebhookBaseURI: s.config.WebhookBaseURI,
 	}
 
 	workflowOptions := client.StartWorkflowOptions{
@@ -69,6 +73,11 @@ func (s *Server) CreateDisc(ctx context.Context, request vwrest.CreateDiscReques
 
 // CompleteGetVideoInfoActivity completes a GetVideoInfo activity with the provided result or error.
 func (s *Server) CompleteGetVideoInfoActivity(ctx context.Context, request vwrest.CompleteGetVideoInfoActivityRequestObject) (vwrest.CompleteGetVideoInfoActivityResponseObject, error) {
+	log.Printf("Received CompleteGetVideoInfoActivity request: %+v", request.Body)
+	if request.Body.Result != nil {
+		log.Printf("Result: %+v", *request.Body.Result)
+	}
+
 	if request.Body.Error != nil {
 		err := s.temporalClient.CompleteActivity(ctx, request.Body.Token, nil, errors.New(*request.Body.Error))
 		if err != nil {
@@ -186,10 +195,14 @@ func (s *Server) GetDisc(ctx context.Context, request vwrest.GetDiscRequestObjec
 	if state.FilesListed {
 		status = "files_listed"
 	}
+	if state.GotFileDurations {
+		status = "got_file_durations"
+	}
 	var files []vwrest.DiscWorkflowFile
-	for filePath := range state.Files {
+	for filePath, fileInfo := range state.Files {
 		files = append(files, vwrest.DiscWorkflowFile{
 			Filename: filePath,
+			DurationSeconds: &fileInfo.DurationSeconds,
 		})
 	}
 
