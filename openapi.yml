@@ -150,6 +150,22 @@ paths:
       responses:
         '200':
           description: Disc workflow found
+          headers:
+            Cache-Control:
+              description: Disable caching for this endpoint
+              schema:
+                type: string
+                example: no-cache, no-store, must-revalidate
+            Pragma:
+              description: HTTP 1.0 backward compatibility for cache control
+              schema:
+                type: string
+                example: no-cache
+            Expires:
+              description: Expire immediately
+              schema:
+                type: string
+                example: "0"
           content:
             application/json:
               schema:
@@ -266,24 +282,39 @@ components:
           type: string
           description: Path to the directory containing the disc contents
           example: /mnt/discs/disc001
+
+    DiscWorkflowFile:
+      type: object
+      required:
+        - filename
+        - sizeBytes
+      properties:
+        filename:
+          type: string
+          example: video.mp4
+        sizeBytes:
+          type: integer
+          format: int64
+          example: 1048576000
     
     DiscWorkflow:
       type: object
       required:
         - uuid
-        - path
         - status
       properties:
         uuid:
           type: string
           format: uuid
           example: 550e8400-e29b-41d4-a716-446655440000
-        path:
-          type: string
-          example: /mnt/discs/disc001
         status:
           type: string
           example: created
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscWorkflowFile'
+          description: List of files being processed by the disc workflow.
     
     Error:
       type: object

@@ -115,32 +115,34 @@ func TestEnd2End(t *testing.T) {
 	}
 	t.Logf("Created disc workflow with UUID: %s", workflowUUID)
 
-	// Poll GetDisc until status reaches "directory_moved" with 20 second timeout
+	// Poll GetDisc until status reaches "files_listed" with 20 second timeout
 	timeout := time.After(20 * time.Second)
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	foundStatus := false
-	for !foundStatus {
+	var getResp *vwrest.GetDiscResponse
+	for getResp == nil {
 		select {
 		case <-timeout:
 			t.Fatalf("timeout waiting for workflow status to reach 'directory_moved'")
 		case <-ticker.C:
-			getResp, err := client.GetDiscWithResponse(ctx, workflowUUID)
+			thisGetResp, err := client.GetDiscWithResponse(ctx, workflowUUID)
 			if err != nil {
 				t.Fatalf("failed to get disc workflow: %v", err)
 			}
-			if getResp.StatusCode() != 200 {
-				t.Fatalf("expected status 200, got %d: %s", getResp.StatusCode(), string(getResp.Body))
+			if thisGetResp.StatusCode() != 200 {
+				t.Fatalf("expected status 200, got %d: %s", thisGetResp.StatusCode(), string(thisGetResp.Body))
 			}
-			status := getResp.JSON200.Status
+			status := thisGetResp.JSON200.Status
 			t.Logf("Workflow status: %s", status)
-			if status == "directory_moved" {
-				t.Logf("Workflow reached 'directory_moved' status")
-				foundStatus = true
+			if status == "files_listed" {
+				t.Logf("Workflow reached 'files_listed' status")
+				getResp = thisGetResp
 			}
 		}
 	}
+
+	t.Log("getResp:", getResp)
 
 	renamedDiscPath := filepath.Join(libraryDir(tempDir), workflowUUID.String())
 
@@ -156,6 +158,19 @@ func TestEnd2End(t *testing.T) {
 		t.Fatalf("expected file does not exist: %s", expectedFile)
 	}
 	t.Logf("Test file exists in renamed disc path: %s", expectedFile)
+
+	// Verify GetDisc response contains the file
+	found := false
+	expectedNasFile := "/nas/media/library/" + workflowUUID.String() + "/testdata_sample_640x360.mkv"
+	for _, file := range getResp.JSON200.Files {
+		if file.Filename == expectedNasFile {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("GetDisc response does not contain expected file: %s", expectedNasFile)
+	}
 }
 
 // dumpContainerLogs reads and logs the last 20 lines of output from a container

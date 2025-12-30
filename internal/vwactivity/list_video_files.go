@@ -40,7 +40,8 @@ func ListVideoFiles(ctx context.Context, params ListVideoFilesParams) (*ListVide
 	var videoPaths []string
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".mkv") {
-			videoPaths = append(videoPaths, filepath.Join(params.DirectoryPath, entry.Name()))
+			videoPath := filepath.Join(params.DirectoryPath, entry.Name())
+			videoPaths = append(videoPaths, videoPath)
 		}
 	}
 

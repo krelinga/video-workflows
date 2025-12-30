@@ -20,6 +20,7 @@ type Params struct {
 type State struct {
 	DirectoryMoved bool                 `json:"directory_moved"`
 	Files          map[string]FileState `json:"files,omitempty"`
+	FilesListed    bool                 `json:"files_listed"`
 }
 
 type FileState struct {
@@ -65,7 +66,25 @@ func Workflow(ctx workflow.Context, params Params) (State, error) {
 	}
 	state.DirectoryMoved = true
 
-	// TODO: List all the files in the renamed directory and create corresponding state entries.
+	// List all the files in the renamed directory and create corresponding state entries.
+	listVideoFilesCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: 30 * time.Second,
+	})
+	listVideoFilesParams := vwactivity.ListVideoFilesParams{
+		DirectoryPath: libraryPath,
+	}
+	logger := workflow.GetLogger(ctx)
+	logger.Info("Listing video files", "directory", listVideoFilesParams.DirectoryPath)
+	var listVideoFilesResult vwactivity.ListVideoFilesResult
+	if err := workflow.ExecuteActivity(listVideoFilesCtx, vwactivity.ListVideoFiles, listVideoFilesParams).Get(listVideoFilesCtx, &listVideoFilesResult); err != nil {
+		return state, fmt.Errorf("failed to list video files: %w", err)
+	}
+	logger.Info("Listed video files", "files", listVideoFilesResult.VideoPaths)
+	state.Files = make(map[string]FileState)
+	for _, videoPath := range listVideoFilesResult.VideoPaths {
+		state.Files[videoPath] = FileState{}
+	}
+	state.FilesListed = true
 
 	// TODO: For each file, generate a screenshot and update the state.
 

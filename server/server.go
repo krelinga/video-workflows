@@ -63,7 +63,6 @@ func (s *Server) CreateDisc(ctx context.Context, request vwrest.CreateDiscReques
 
 	return vwrest.CreateDisc201JSONResponse{
 		Uuid:   request.Body.Uuid,
-		Path:   request.Body.Path,
 		Status: "created",
 	}, nil
 }
@@ -184,10 +183,26 @@ func (s *Server) GetDisc(ctx context.Context, request vwrest.GetDiscRequestObjec
 	if state.DirectoryMoved {
 		status = "directory_moved"
 	}
+	if state.FilesListed {
+		status = "files_listed"
+	}
+	var files []vwrest.DiscWorkflowFile
+	for filePath := range state.Files {
+		files = append(files, vwrest.DiscWorkflowFile{
+			Filename: filePath,
+		})
+	}
 
 	return vwrest.GetDisc200JSONResponse{
-		Uuid:   request.Uuid,
-		Path:   "", // Path is not stored in state, could be retrieved from workflow info if needed
-		Status: status,
+		Body: vwrest.DiscWorkflow{
+			Uuid:   request.Uuid,
+			Status: status,
+			Files:  files,
+		},
+		Headers: vwrest.GetDisc200ResponseHeaders{
+			CacheControl: "no-cache, no-store, must-revalidate",
+			Pragma:       "no-cache",
+			Expires:      "0",
+		},
 	}, nil
 }
