@@ -203,6 +203,7 @@ func (s *Server) GetDisc(ctx context.Context, request vwrest.GetDiscRequestObjec
 		files = append(files, vwrest.DiscWorkflowFile{
 			Filename: filePath,
 			DurationSeconds: &fileInfo.DurationSeconds,
+			ChapterDurationsSeconds: fileInfo.ChapterDurationsSeconds,
 		})
 	}
 

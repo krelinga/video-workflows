@@ -296,6 +296,13 @@ components:
           format: double
           example: 3600.5
           description: Duration of the video file in seconds.
+        chapterDurationsSeconds:
+          type: array
+          items:
+            type: number
+            format: double
+          description: List of chapter durations in seconds.
+          example: [600.0, 1200.0, 1800.5]
     
     DiscWorkflow:
       type: object
