@@ -508,6 +508,7 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 		Env: map[string]string{
 			"VW_TEMPORAL_HOST":    "temporal",
 			"VW_TEMPORAL_PORT":    "7233",
+			"VW_INBOX_PATH":       "/nas/media/inbox",
 			"VW_LIBRARY_PATH":     "/nas/media/library",
 			"VW_PREVIEW_PATH":     "/nas/media/previews",
 			"VW_WEBHOOK_BASE_URI": "http://server:8080/activity",

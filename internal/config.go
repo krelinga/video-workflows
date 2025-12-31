@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	EnvInboxPath      = "VW_INBOX_PATH"
 	EnvLibraryPath    = "VW_LIBRARY_PATH"
 	EnvPreviewPath    = "VW_PREVIEW_PATH"
 	EnvTemporalHost   = "VW_TEMPORAL_HOST"
@@ -30,6 +31,7 @@ type TemporalConfig struct {
 
 type ServerConfig struct {
 	Temporal       *TemporalConfig
+	InboxPath      string
 	LibraryPath    string
 	PreviewPath    string
 	WebhookBaseURI string
@@ -71,6 +73,7 @@ func newTemporalConfigFromEnv() *TemporalConfig {
 func NewServerConfigFromEnv() *ServerConfig {
 	return &ServerConfig{
 		Temporal:       newTemporalConfigFromEnv(),
+		InboxPath:      mustGetenv(EnvInboxPath),
 		LibraryPath:    mustGetenv(EnvLibraryPath),
 		PreviewPath:    mustGetenv(EnvPreviewPath),
 		WebhookBaseURI: mustGetenv(EnvWebhookBaseURI),
