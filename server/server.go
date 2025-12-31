@@ -42,6 +42,7 @@ func (s *Server) CreateDisc(ctx context.Context, request vwrest.CreateDiscReques
 		UUID:           request.Body.Uuid.String(),
 		Path:           request.Body.Path,
 		LibraryPath:    s.libraryPath,
+		PreviewPath:    s.config.PreviewPath,
 		WebhookBaseURI: s.config.WebhookBaseURI,
 	}
 

@@ -94,6 +94,18 @@ func Workflow(ctx workflow.Context, params Params) (State, error) {
 	}
 	state.FilesListed = true
 
+	// Create preview directory
+	makePreviewDirCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: 10 * time.Second,
+	})
+	previewDir := filepath.Join(params.PreviewPath, params.UUID)
+	makePreviewDirParams := vwactivity.MkDirParams{
+		Path: previewDir,
+	}
+	if err := workflow.ExecuteActivity(makePreviewDirCtx, vwactivity.MkDir, makePreviewDirParams).Get(makePreviewDirCtx, nil); err != nil {
+		return state, fmt.Errorf("failed to create preview directory: %w", err)
+	}
+
 	// For each file, get it's info & start generating a preview.  Update status.
 	getVideoInfoCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		StartToCloseTimeout: 2 * time.Minute,
@@ -143,7 +155,7 @@ func Workflow(ctx workflow.Context, params Params) (State, error) {
 		previewParams := vwactivity.TranscodeParams{
 			Uuid:               previewUuid,
 			InputPath:          videoPath,
-			OutputPath:         filepath.Join(params.PreviewPath, params.UUID, previewBase),
+			OutputPath:         filepath.Join(previewDir, previewBase),
 			Profile:            "preview",
 			WebhookCompleteURI: params.WebhookBaseURI + "/transcode/complete",
 			WebhookProgressURI: params.WebhookBaseURI + "/transcode/progress",
