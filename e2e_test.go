@@ -208,15 +208,16 @@ func dumpContainerLogs(t *testing.T, ctx context.Context, container testcontaine
 		return
 	}
 
-	// Split logs by newlines and get the last 20 lines
+	// Split logs by newlines and get the last few lines
+	const maxLines = 20
 	lines := strings.Split(strings.TrimSpace(string(logBytes)), "\n")
 	startIdx := 0
-	if len(lines) > 20 {
-		startIdx = len(lines) - 20
+	if len(lines) > maxLines {
+		startIdx = len(lines) - maxLines
 	}
 	lastLines := strings.Join(lines[startIdx:], "\n")
 
-	t.Logf("=== %s container logs (last 20 lines) ===\n%s", name, lastLines)
+	t.Logf("=== %s container logs (last %d lines) ===\n%s", name, maxLines, lastLines)
 }
 
 func libraryDir(tempDir string) string {
