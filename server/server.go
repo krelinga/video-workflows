@@ -266,3 +266,20 @@ func (s *Server) GetDisc(ctx context.Context, request vwrest.GetDiscRequestObjec
 		},
 	}, nil
 }
+
+// GetInbox retrieves the list of disc paths in the inbox.
+func (s *Server) GetInbox(ctx context.Context, request vwrest.GetInboxRequestObject) (vwrest.GetInboxResponseObject, error) {
+	// TODO: Implement inbox path listing logic
+	// This should scan the inbox directory and return paths that haven't been processed yet
+
+	return vwrest.GetInbox200JSONResponse{
+		Body: vwrest.InboxResponse{
+			Paths: []string{},
+		},
+		Headers: vwrest.GetInbox200ResponseHeaders{
+			CacheControl: "no-cache, no-store, must-revalidate",
+			Pragma:       "no-cache",
+			Expires:      "0",
+		},
+	}, nil
+}

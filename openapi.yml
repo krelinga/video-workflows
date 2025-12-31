@@ -183,6 +183,43 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /inbox:
+    get:
+      summary: List inbox disc paths
+      description: Returns a list of disc paths in the inbox
+      operationId: getInbox
+      tags:
+        - disc
+      responses:
+        '200':
+          description: List of inbox disc paths
+          headers:
+            Cache-Control:
+              description: Disable caching for this endpoint
+              schema:
+                type: string
+                example: no-cache, no-store, must-revalidate
+            Pragma:
+              description: HTTP 1.0 backward compatibility for cache control
+              schema:
+                type: string
+                example: no-cache
+            Expires:
+              description: Expire immediately
+              schema:
+                type: string
+                example: "0"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   schemas:
     CompleteGetVideoInfoActivityRequest:
@@ -330,6 +367,18 @@ components:
           type: string
           description: Error message if the workflow failed
           example: Failed to process disc
+    
+    InboxResponse:
+      type: object
+      required:
+        - paths
+      properties:
+        paths:
+          type: array
+          items:
+            type: string
+          description: List of disc paths in the inbox
+          example: ["/mnt/discs/disc001", "/mnt/discs/disc002", "/mnt/discs/disc003"]
     
     Error:
       type: object

@@ -109,6 +109,12 @@ type HeartbeatTranscodeActivityRequest struct {
 	Uuid *openapi_types.UUID `json:"uuid,omitempty"`
 }
 
+// InboxResponse defines model for InboxResponse.
+type InboxResponse struct {
+	// Paths List of disc paths in the inbox
+	Paths []string `json:"paths"`
+}
+
 // CompleteGetVideoInfoActivityJSONRequestBody defines body for CompleteGetVideoInfoActivity for application/json ContentType.
 type CompleteGetVideoInfoActivityJSONRequestBody = CompleteGetVideoInfoActivityRequest
 
@@ -216,6 +222,9 @@ type ClientInterface interface {
 
 	// GetDisc request
 	GetDisc(ctx context.Context, uuid openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetInbox request
+	GetInbox(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) CompleteGetVideoInfoActivityWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -316,6 +325,18 @@ func (c *Client) CreateDisc(ctx context.Context, body CreateDiscJSONRequestBody,
 
 func (c *Client) GetDisc(ctx context.Context, uuid openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDiscRequest(c.Server, uuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetInbox(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetInboxRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -520,6 +541,33 @@ func NewGetDiscRequest(server string, uuid openapi_types.UUID) (*http.Request, e
 	return req, nil
 }
 
+// NewGetInboxRequest generates requests for GetInbox
+func NewGetInboxRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/inbox")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -585,6 +633,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetDiscWithResponse request
 	GetDiscWithResponse(ctx context.Context, uuid openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetDiscResponse, error)
+
+	// GetInboxWithResponse request
+	GetInboxWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetInboxResponse, error)
 }
 
 type CompleteGetVideoInfoActivityResponse struct {
@@ -705,6 +756,29 @@ func (r GetDiscResponse) StatusCode() int {
 	return 0
 }
 
+type GetInboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxResponse
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetInboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetInboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // CompleteGetVideoInfoActivityWithBodyWithResponse request with arbitrary body returning *CompleteGetVideoInfoActivityResponse
 func (c *ClientWithResponses) CompleteGetVideoInfoActivityWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteGetVideoInfoActivityResponse, error) {
 	rsp, err := c.CompleteGetVideoInfoActivityWithBody(ctx, contentType, body, reqEditors...)
@@ -780,6 +854,15 @@ func (c *ClientWithResponses) GetDiscWithResponse(ctx context.Context, uuid open
 		return nil, err
 	}
 	return ParseGetDiscResponse(rsp)
+}
+
+// GetInboxWithResponse request returning *GetInboxResponse
+func (c *ClientWithResponses) GetInboxWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetInboxResponse, error) {
+	rsp, err := c.GetInbox(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetInboxResponse(rsp)
 }
 
 // ParseCompleteGetVideoInfoActivityResponse parses an HTTP response from a CompleteGetVideoInfoActivityWithResponse call
@@ -968,6 +1051,39 @@ func ParseGetDiscResponse(rsp *http.Response) (*GetDiscResponse, error) {
 	return response, nil
 }
 
+// ParseGetInboxResponse parses an HTTP response from a GetInboxWithResponse call
+func ParseGetInboxResponse(rsp *http.Response) (*GetInboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetInboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Complete the GetVideoInfo activity
@@ -985,6 +1101,9 @@ type ServerInterface interface {
 	// Get disc workflow status
 	// (GET /disc/{uuid})
 	GetDisc(w http.ResponseWriter, r *http.Request, uuid openapi_types.UUID)
+	// List inbox disc paths
+	// (GET /inbox)
+	GetInbox(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1068,6 +1187,20 @@ func (siw *ServerInterfaceWrapper) GetDisc(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDisc(w, r, uuid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetInbox operation middleware
+func (siw *ServerInterfaceWrapper) GetInbox(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetInbox(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1202,6 +1335,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/activity/transcode/heartbeat", wrapper.TranscodeActivityHeartbeat)
 	m.HandleFunc("POST "+options.BaseURL+"/disc", wrapper.CreateDisc)
 	m.HandleFunc("GET "+options.BaseURL+"/disc/{uuid}", wrapper.GetDisc)
+	m.HandleFunc("GET "+options.BaseURL+"/inbox", wrapper.GetInbox)
 
 	return m
 }
@@ -1399,6 +1533,43 @@ func (response GetDisc500JSONResponse) VisitGetDiscResponse(w http.ResponseWrite
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetInboxRequestObject struct {
+}
+
+type GetInboxResponseObject interface {
+	VisitGetInboxResponse(w http.ResponseWriter) error
+}
+
+type GetInbox200ResponseHeaders struct {
+	CacheControl string
+	Expires      string
+	Pragma       string
+}
+
+type GetInbox200JSONResponse struct {
+	Body    InboxResponse
+	Headers GetInbox200ResponseHeaders
+}
+
+func (response GetInbox200JSONResponse) VisitGetInboxResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Expires", fmt.Sprint(response.Headers.Expires))
+	w.Header().Set("Pragma", fmt.Sprint(response.Headers.Pragma))
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetInbox500JSONResponse Error
+
+func (response GetInbox500JSONResponse) VisitGetInboxResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Complete the GetVideoInfo activity
@@ -1416,6 +1587,9 @@ type StrictServerInterface interface {
 	// Get disc workflow status
 	// (GET /disc/{uuid})
 	GetDisc(ctx context.Context, request GetDiscRequestObject) (GetDiscResponseObject, error)
+	// List inbox disc paths
+	// (GET /inbox)
+	GetInbox(ctx context.Context, request GetInboxRequestObject) (GetInboxResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -1597,38 +1771,63 @@ func (sh *strictHandler) GetDisc(w http.ResponseWriter, r *http.Request, uuid op
 	}
 }
 
+// GetInbox operation middleware
+func (sh *strictHandler) GetInbox(w http.ResponseWriter, r *http.Request) {
+	var request GetInboxRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetInbox(ctx, request.(GetInboxRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetInbox")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetInboxResponseObject); ok {
+		if err := validResponse.VisitGetInboxResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"AAD//xQt7scNHwAA",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
