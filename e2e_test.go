@@ -115,7 +115,7 @@ func TestEnd2End(t *testing.T) {
 	}
 	t.Logf("Created disc workflow with UUID: %s", workflowUUID)
 
-	// Poll GetDisc until status reaches "got_file_durations" with 20 second timeout
+	// Poll GetDisc until status reaches "got_file_diagnostics" with 20 second timeout
 	timeout := time.After(20 * time.Second)
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -124,7 +124,7 @@ func TestEnd2End(t *testing.T) {
 	for getResp == nil {
 		select {
 		case <-timeout:
-			t.Fatalf("timeout waiting for workflow status to reach 'got_file_durations'")
+			t.Fatalf("timeout waiting for workflow status to reach 'got_file_diagnostics'")
 		case <-ticker.C:
 			thisGetResp, err := client.GetDiscWithResponse(ctx, workflowUUID)
 			if err != nil {
@@ -135,8 +135,8 @@ func TestEnd2End(t *testing.T) {
 			}
 			status := thisGetResp.JSON200.Status
 			t.Logf("Workflow status: %s", status)
-			if status == "got_file_durations" {
-				t.Logf("Workflow reached 'got_file_durations' status")
+			if status == "got_file_diagnostics" {
+				t.Logf("Workflow reached 'got_file_diagnostics' status")
 				getResp = thisGetResp
 			}
 		}
@@ -159,6 +159,13 @@ func TestEnd2End(t *testing.T) {
 	}
 	t.Logf("Test file exists in renamed disc path: %s", expectedFile)
 
+	// Verify the test file has a preview.
+	expectedPreviewFile := filepath.Join(tempDir, "previews", workflowUUID.String(), "testdata_sample_640x360_preview.jpg")
+	if _, err := os.Stat(expectedPreviewFile); os.IsNotExist(err) {
+		t.Fatalf("expected preview file does not exist: %s", expectedPreviewFile)
+	}
+	t.Logf("Preview file exists: %s", expectedPreviewFile)
+
 	// Verify GetDisc response contains the file
 	var discWorkflowFile *vwrest.DiscWorkflowFile
 	expectedNasFile := "/nas/media/library/" + workflowUUID.String() + "/testdata_sample_640x360.mkv"
@@ -171,12 +178,18 @@ func TestEnd2End(t *testing.T) {
 	if discWorkflowFile == nil {
 		t.Fatalf("GetDisc response does not contain expected file: %s", expectedNasFile)
 	}
-
 	t.Logf("GetDisc response contains expected file: %s", discWorkflowFile.Filename)
+
 	if discWorkflowFile.DurationSeconds == nil {
 		t.Fatalf("GetDisc response file DurationSeconds is nil")
 	} else if *discWorkflowFile.DurationSeconds <= 0 {
 		t.Fatalf("GetDisc response file DurationSeconds is not positive: %f", *discWorkflowFile.DurationSeconds)
+	}
+
+	if discWorkflowFile.PreviewPath == nil {
+		t.Fatalf("GetDisc response file PreviewPath is nil")
+	} else if *discWorkflowFile.PreviewPath == "" {
+		t.Fatalf("GetDisc response file PreviewPath is empty")
 	}
 }
 
@@ -221,6 +234,12 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 	libraryPath := libraryDir(tempDir)
 	if err := os.MkdirAll(libraryPath, 0o755); err != nil {
 		t.Fatalf("failed to create library directory: %v", err)
+	}
+
+	// Create previews directory.
+	previewsPath := filepath.Join(tempDir, "previews")
+	if err := os.MkdirAll(previewsPath, 0o755); err != nil {
+		t.Fatalf("failed to create previews directory: %v", err)
 	}
 
 	// Create Docker network
@@ -485,6 +504,7 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 			"VW_TEMPORAL_HOST":    "temporal",
 			"VW_TEMPORAL_PORT":    "7233",
 			"VW_LIBRARY_PATH":     "/nas/media/library",
+			"VW_PREVIEW_PATH":     "/nas/media/previews",
 			"VW_WEBHOOK_BASE_URI": "http://server:8080/activity",
 		},
 		Networks:       []string{networkName},

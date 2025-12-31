@@ -291,6 +291,10 @@ components:
         filename:
           type: string
           example: video.mp4
+        previewPath:
+          type: string
+          example: /nas/media/previews/video_preview.mp4
+          description: Path to the generated preview video for the video file.
         durationSeconds:
           type: number
           format: double
@@ -303,6 +307,14 @@ components:
             format: double
           description: List of chapter durations in seconds.
           example: [600.0, 1200.0, 1800.5]
+        previewError:
+          type: string
+          example: Failed to generate preview due to unsupported format.
+          description: Error message if preview generation failed.
+        infoError:
+          type: string
+          example: Failed to retrieve video info due to corrupted file.
+          description: Error message if retrieving video info failed.
     
     DiscWorkflow:
       type: object

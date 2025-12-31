@@ -13,6 +13,7 @@ type TranscodeParams struct {
 	Uuid               string `json:"uuid"`
 	InputPath          string `json:"input_path"`
 	OutputPath         string `json:"output_path"`
+	Profile            string `json:"profile"`
 	WebhookCompleteURI string `json:"webhook_complete_uri"`
 	WebhookProgressURI string `json:"webhook_progress_uri"`
 }
@@ -30,6 +31,7 @@ func (d *TranscodeDeps) Transcode(ctx context.Context, params TranscodeParams) e
 		Uuid:                uuid.MustParse(params.Uuid),
 		SourcePath:          params.InputPath,
 		DestinationPath:     params.OutputPath,
+		Profile:             params.Profile,
 		WebhookToken:        activity.GetInfo(ctx).TaskToken,
 		WebhookUri:          &params.WebhookCompleteURI,
 		HeartbeatWebhookUri: &params.WebhookProgressURI,

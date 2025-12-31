@@ -16,21 +16,24 @@ type Params struct {
 	UUID           string `json:"uuid"`
 	Path           string `json:"path"`
 	LibraryPath    string `json:"library_path"`
+	PreviewPath    string `json:"preview_path"`
 	WebhookBaseURI string `json:"webhook_base_uri"`
 }
 
 type State struct {
-	DirectoryMoved   bool                 `json:"directory_moved"`
-	Files            map[string]FileState `json:"files,omitempty"`
-	FilesListed      bool                 `json:"files_listed"`
-	GotFileDurations bool                 `json:"got_file_durations"`
+	DirectoryMoved     bool                 `json:"directory_moved"`
+	Files              map[string]FileState `json:"files,omitempty"`
+	FilesListed        bool                 `json:"files_listed"`
+	GotFileDiagnostics bool                 `json:"got_file_diagnostics"`
 }
 
 type FileState struct {
-	DurationSeconds         float64       `json:"duration_seconds,omitempty"`
+	DurationSeconds         *float64      `json:"duration_seconds,omitempty"`
 	ChapterDurationsSeconds []float64     `json:"chapter_durations_seconds,omitempty"`
-	ScreenshotPath          *string       `json:"screenshot_path,omitempty"`
+	PreviewPath             *string       `json:"preview_path,omitempty"`
 	Category                *FileCategory `json:"category,omitempty"`
+	PreviewError            *string       `json:"preview_error,omitempty"`
+	InfoError               *string       `json:"info_error,omitempty"`
 }
 
 type FileCategory string
@@ -91,24 +94,29 @@ func Workflow(ctx workflow.Context, params Params) (State, error) {
 	}
 	state.FilesListed = true
 
-	// For each file, get it's info and update state.
+	// For each file, get it's info & start generating a preview.  Update status.
 	getVideoInfoCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		StartToCloseTimeout: 2 * time.Minute,
 	})
-	videoInfoSelect := workflow.NewSelector(ctx)
+	generatePreviewCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: 10 * time.Minute,
+	})
+	diagSelect := workflow.NewSelector(ctx)
+	diagCount := 0
 	for videoPath := range state.Files {
-		var uuid string
-		if err := workflow.SideEffect(ctx, newUUID).Get(&uuid); err != nil {
+		var videoInfoUuid string
+		if err := workflow.SideEffect(ctx, newUUID).Get(&videoInfoUuid); err != nil {
 			return state, fmt.Errorf("failed to generate UUID for video info activity: %w", err)
 		}
-		params := vwactivity.GetVideoInfoParams{
-			Uuid:               uuid,
+		videoInfoParams := vwactivity.GetVideoInfoParams{
+			Uuid:               videoInfoUuid,
 			VideoPath:          videoPath,
 			WebhookCompleteURI: params.WebhookBaseURI + "/get_video_info/complete",
 		}
 		var infoDeps *vwactivity.VideoInfoDeps
-		future := workflow.ExecuteActivity(getVideoInfoCtx, infoDeps.GetVideoInfo, params)
-		videoInfoSelect.AddFuture(future, func(f workflow.Future) {
+		videoInfoFuture := workflow.ExecuteActivity(getVideoInfoCtx, infoDeps.GetVideoInfo, videoInfoParams)
+		diagCount++
+		diagSelect.AddFuture(videoInfoFuture, func(f workflow.Future) {
 			var info vwactivity.VideoInfo
 			err := f.Get(getVideoInfoCtx, &info)
 			if err != nil {
@@ -116,17 +124,48 @@ func Workflow(ctx workflow.Context, params Params) (State, error) {
 				return
 			}
 			fileState := state.Files[videoPath]
-			fileState.DurationSeconds = info.DurationSeconds
+			fileState.DurationSeconds = &info.DurationSeconds
 			fileState.ChapterDurationsSeconds = info.ChapterDurations
 			state.Files[videoPath] = fileState
 		})
-	}
-	for range state.Files {
-		videoInfoSelect.Select(ctx)
-	}
-	state.GotFileDurations = true
 
-	// TODO: For each file, generate a screenshot and update the state.
+		var previewUuid string
+		if err := workflow.SideEffect(ctx, newUUID).Get(&previewUuid); err != nil {
+			return state, fmt.Errorf("failed to generate UUID for preview activity: %w", err)
+		}
+		videoExt := filepath.Ext(videoPath)
+		var previewBase string
+		if videoExt == "" {
+			previewBase = filepath.Base(videoPath) + ".mp4"
+		} else {
+			previewBase = filepath.Base(videoPath[0:len(videoPath)-len(videoExt)]) + ".mp4"
+		}
+		previewParams := vwactivity.TranscodeParams{
+			Uuid:               previewUuid,
+			InputPath:          videoPath,
+			OutputPath:         filepath.Join(params.PreviewPath, params.UUID, previewBase),
+			Profile:            "preview",
+			WebhookCompleteURI: params.WebhookBaseURI + "/transcode/complete",
+			WebhookProgressURI: params.WebhookBaseURI + "/transcode/progress",
+		}
+		var transcodeDeps *vwactivity.TranscodeDeps
+		previewFuture := workflow.ExecuteActivity(generatePreviewCtx, transcodeDeps.Transcode, previewParams)
+		diagCount++
+		diagSelect.AddFuture(previewFuture, func(f workflow.Future) {
+			err := f.Get(generatePreviewCtx, nil)
+			if err != nil {
+				logger.Error("Failed to generate preview", "videoPath", videoPath, "error", err)
+				return
+			}
+			fileState := state.Files[videoPath]
+			fileState.PreviewPath = &previewParams.OutputPath
+			state.Files[videoPath] = fileState
+		})
+	}
+	for range diagCount {
+		diagSelect.Select(ctx)
+	}
+	state.GotFileDiagnostics = true
 
 	// TODO: Wait for the user to categorize each file and update the state.
 

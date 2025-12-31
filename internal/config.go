@@ -8,6 +8,7 @@ import (
 
 const (
 	EnvLibraryPath    = "VW_LIBRARY_PATH"
+	EnvPreviewPath    = "VW_PREVIEW_PATH"
 	EnvTemporalHost   = "VW_TEMPORAL_HOST"
 	EnvTemporalPort   = "VW_TEMPORAL_PORT"
 	EnvTranscodeHost  = "VW_TRANSCODE_HOST"
@@ -28,17 +29,18 @@ type TemporalConfig struct {
 }
 
 type ServerConfig struct {
-	Temporal    *TemporalConfig
-	LibraryPath string
+	Temporal       *TemporalConfig
+	LibraryPath    string
+	PreviewPath    string
 	WebhookBaseURI string
 }
 
 type WorkerConfig struct {
-	Temporal       *TemporalConfig
-	TranscodeHost  string
-	TranscodePort  int
-	VideoInfoHost  string
-	VideoInfoPort  int
+	Temporal      *TemporalConfig
+	TranscodeHost string
+	TranscodePort int
+	VideoInfoHost string
+	VideoInfoPort int
 }
 
 func mustGetenv(key string) string {
@@ -68,8 +70,9 @@ func newTemporalConfigFromEnv() *TemporalConfig {
 
 func NewServerConfigFromEnv() *ServerConfig {
 	return &ServerConfig{
-		Temporal:    newTemporalConfigFromEnv(),
-		LibraryPath: mustGetenv(EnvLibraryPath),
+		Temporal:       newTemporalConfigFromEnv(),
+		LibraryPath:    mustGetenv(EnvLibraryPath),
+		PreviewPath:    mustGetenv(EnvPreviewPath),
 		WebhookBaseURI: mustGetenv(EnvWebhookBaseURI),
 	}
 }

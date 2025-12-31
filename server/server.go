@@ -119,6 +119,11 @@ func (s *Server) CompleteGetVideoInfoActivity(ctx context.Context, request vwres
 
 // CompleteTranscodeActivity completes a Transcode activity with success or an error.
 func (s *Server) CompleteTranscodeActivity(ctx context.Context, request vwrest.CompleteTranscodeActivityRequestObject) (vwrest.CompleteTranscodeActivityResponseObject, error) {
+	log.Printf("Received CompleteTranscodeActivity request: %v", request.Body)
+	if request.Body.Error != nil {
+		log.Printf("CompleteTranscodeActivity Error: %s", *request.Body.Error)
+	}
+
 	if request.Body.Error != nil {
 		err := s.temporalClient.CompleteActivity(ctx, request.Body.Token, nil, errors.New(*request.Body.Error))
 		if err != nil {
@@ -147,6 +152,7 @@ func (s *Server) TranscodeActivityHeartbeat(ctx context.Context, request vwrest.
 	if request.Body.Progress != nil {
 		progress.Percentage = float64(*request.Body.Progress)
 	}
+	log.Printf("Recording heartbeat for Transcode activity with token %v: %+v", request.Body.Token, progress)
 
 	err := s.temporalClient.RecordActivityHeartbeat(ctx, request.Body.Token, progress)
 	if err != nil {
@@ -195,15 +201,16 @@ func (s *Server) GetDisc(ctx context.Context, request vwrest.GetDiscRequestObjec
 	if state.FilesListed {
 		status = "files_listed"
 	}
-	if state.GotFileDurations {
-		status = "got_file_durations"
+	if state.GotFileDiagnostics {
+		status = "got_file_diagnostics"
 	}
 	var files []vwrest.DiscWorkflowFile
 	for filePath, fileInfo := range state.Files {
 		files = append(files, vwrest.DiscWorkflowFile{
-			Filename: filePath,
-			DurationSeconds: &fileInfo.DurationSeconds,
+			Filename:                filePath,
+			DurationSeconds:         fileInfo.DurationSeconds,
 			ChapterDurationsSeconds: fileInfo.ChapterDurationsSeconds,
+			PreviewPath:             fileInfo.PreviewPath,
 		})
 	}
 
