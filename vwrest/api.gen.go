@@ -69,6 +69,9 @@ type CreateDiscRequest struct {
 
 // DiscWorkflow defines model for DiscWorkflow.
 type DiscWorkflow struct {
+	// Error Error message if the workflow failed
+	Error *string `json:"error,omitempty"`
+
 	// Files List of files being processed by the disc workflow.
 	Files  []DiscWorkflowFile `json:"files,omitempty"`
 	Status string             `json:"status"`
@@ -83,12 +86,6 @@ type DiscWorkflowFile struct {
 	// DurationSeconds Duration of the video file in seconds.
 	DurationSeconds *float64 `json:"durationSeconds,omitempty"`
 	Filename        string   `json:"filename"`
-
-	// InfoError Error message if retrieving video info failed.
-	InfoError *string `json:"infoError,omitempty"`
-
-	// PreviewError Error message if preview generation failed.
-	PreviewError *string `json:"previewError,omitempty"`
 
 	// PreviewPath Path to the generated preview video for the video file.
 	PreviewPath *string `json:"previewPath,omitempty"`
@@ -1603,35 +1600,35 @@ func (sh *strictHandler) GetDisc(w http.ResponseWriter, r *http.Request, uuid op
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"H4sIAAAAAAAC/+xZbW/bvhH/KgS3FxsgW3Lq5J/61dIkTQMUXeCk3YYiKGjyZLORSJU8OfECf/eBpOQn",
+	"yXGGxm3/QN8EiUSe7n73u8c8Uq7zQitQaOngkVo+gZz5X091XmSAcAH4SQrQlyrVJxzlVOJsCN9KsOiO",
+	"FUYXYFCCvwTGaON+EWC5kQVKreiAnrvHJAdr2RiITAlOgLBKGEmZzEDQiMIDc9+kA/rWPyKoiQE0EqZA",
+	"pk4JIlWqiSjBvVKA99rckfDRiOKscHctGqnGdB5RA7bMvJZ/NZDSAf1LvDQ3rmyNn2HoMAiaRxT1Haim",
+	"gW+YhaN+BxTXAgQZScXMjITDq3aJi0//Fae9ZHSA2Uj27v7z7+GERjTVJmdIB3Q0Q2izpCylaH7148fL",
+	"M4IThuSeWVLagJhFZtAjvGrRAu7umkKHhwkc95OkAwevR51+T/Q77I/eUaffPzo6POz3kyRJVhX0ijQU",
+	"9Fh/K6UBQQefK5BuF8f06CtwD9/zsW5Qi09YgWDOSsOc+fYauFbCNlF5Ly0SnZLqAhH1DSIVsdWtFQw+",
+	"HyVJ1DtwP46T5DaiEiH3chdWC12OshXHqDIfgfF8CA+YMWwW+IEsq3XcquKNO7VQzCnr3FUzvE3JV07J",
+	"3QrNn8D8xjBlHT9fNIqxltoWxjcbL+vIlcqWaSq5BIXEgNWl4WDbiP+nircFFj83xgwwhDNp+VYHFwwn",
+	"TfOuGE6cQc4UIQ1w1GZGuFbIpJJqXL2w3D/zJWPVzDhXGLvX1v9Mkt7zkT3NHBU6hdEuCATxSKfaLD/p",
+	"Mn2a6fv9I1sd8hi14euQ/VetzXfFTm3T0xWwMJqDtR6GNkRTmcETadC/JiNwDqxEuYiZNaF1rF3kvqcq",
+	"5ioCb2UGbYnQIsMyILKwiXtmiqdo8WN8Wym3y7vetv0Wou72StQ9/M5aJHaVobPWAuQIs01DV4a6h9Fz",
+	"tHFiFMth3av+E9286LeRoDAwlXB/tTM7jUGBcVQi1ZVa9SpjLA1Zz8SxYjbOQUgWVxdt7M9+qf5s12yD",
+	"RAvL2vhzXsf/Bmm02EDi8sPN+fDDyfsv58PhP4dtcFTZYv3aiQr9LtGcl8bAbs77Ty+ltSn9DpjBETB8",
+	"fo9QGD02YFtYVfUbjlcFGA4KXcr7W9LpJcnfV93xRyuRcvYg8zKng57reHKpwl9JG+F/NwdPNQfR0klN",
+	"p7srbpgK5FTIuHcy5ExmTnBZFNrgPypFu1znNKIhnunJ1SW5Dgd8nlnDwb20YKaSg4/HnCk2dsVnrdb4",
+	"Zk+ih8ClXFLnXHId7tKITsHYILPXTbqJ+5QuQLFC0gF91U26r6oy7UkY1wNOPAb8EqLaGegLmOt/PWt1",
+	"4HIrY8Fun5rIvXTpZwJk0aPUILuo8Gn0UqzIaptwaPASWHyjxaxGHpRXiRVFJrkXFH+1Wi3H8RcYYIO/",
+	"lxRBU0IYkAutbIjogyRpQlPLITWKgtiSuyYiLbPMl5l+uPcipoTs6ZXdjGlBTG1LRA9/xDcvFYJRLPN0",
+	"BlPtGdw5W+Y5M7MVd29njr+wJOciDfzfvFwOU7tISZgStcPW0/BWujYS/565urXQ/CbqDyBqk0pbWTqp",
+	"W4PtNL0GJSxhZHF00YfthbIN6iy6lz1xdnd39Ju0+yHtu2cwKjDXD8fbE6kfPB1HFdyvNyKBkIzwtg2E",
+	"I+VyE+I3Ao0Euti27CtjNtY5z2Jb78UUWNt3tDjybA3Oasb/6TwmHc8XWwCXqXSTopsfhQZLlEYCDzJw",
+	"vZ+83r9ep1qlmeS1UmM5BRUYJi1hmQEmZm7kLi38WkXDO5OwjRXcIuLiRzeOzJ0OY2iJuyFgaVRoX/y0",
+	"qtBNRAhEp5tSyWjmIWlE2AVgFV4FMywHBGPp4HPr/FUtMjY3htIdqMK3mmGqOWo9jKIVUHdNXLftCf4n",
+	"hFyqS+U0nAATHptHesr4BDqnWqHRWcviR1o2yoBwxiduNAvZVVoCShRaKldJl5ouh1WlO+4KRETpjkVt",
+	"ICJ5abFjYMoyKVjbwDyP6PlDIU3bkjK8IDL3SxmEbLbly0mr3CvDxuHkuth3NzdXpNdNyIjxu3tmQmvB",
+	"UI5k5v/jqI23Hfwm20H0tL0tH5/73NHff5yu+9rlruDvXylPXABuBHO1YY0osrGLVuoL9K2XHwS1xfB7",
+	"zVlGBEwh00Xus4U/SyNamowO6ASxGMRx5s5NtMXBcXKc0HnUWBYaLUruO8kWCXYQx6yQ3dXlxvx2/r8A",
+	"AAD//xQt7scNHwAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

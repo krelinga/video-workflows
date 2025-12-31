@@ -103,6 +103,7 @@ func Workflow(ctx workflow.Context, params Params) (State, error) {
 		Path: previewDir,
 	}
 	if err := workflow.ExecuteActivity(makePreviewDirCtx, vwactivity.MkDir, makePreviewDirParams).Get(makePreviewDirCtx, nil); err != nil {
+		logger.Error("Failed to create preview directory", "path", previewDir, "error", err)
 		return state, fmt.Errorf("failed to create preview directory: %w", err)
 	}
 

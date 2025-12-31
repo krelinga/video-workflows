@@ -140,6 +140,9 @@ func TestEnd2End(t *testing.T) {
 				t.Logf("Workflow reached 'got_file_diagnostics' status")
 				getResp = thisGetResp
 			}
+			if thisGetResp.JSON200.Error != nil {
+				t.Fatalf("workflow ended with error: %s", *thisGetResp.JSON200.Error)
+			}
 		}
 	}
 
@@ -161,7 +164,7 @@ func TestEnd2End(t *testing.T) {
 	t.Logf("Test file exists in renamed disc path: %s", expectedFile)
 
 	// Verify the test file has a preview.
-	expectedPreviewFile := filepath.Join(tempDir, "previews", workflowUUID.String(), "testdata_sample_640x360_preview.jpg")
+	expectedPreviewFile := filepath.Join(tempDir, "previews", workflowUUID.String(), "testdata_sample_640x360.mp4")
 	if _, err := os.Stat(expectedPreviewFile); os.IsNotExist(err) {
 		t.Fatalf("expected preview file does not exist: %s", expectedPreviewFile)
 	}

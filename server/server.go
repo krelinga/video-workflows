@@ -11,6 +11,7 @@ import (
 	"github.com/krelinga/video-workflows/internal/vwactivity"
 	"github.com/krelinga/video-workflows/internal/workflows/vwdisc"
 	"github.com/krelinga/video-workflows/vwrest"
+	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 )
@@ -169,8 +170,46 @@ func (s *Server) TranscodeActivityHeartbeat(ctx context.Context, request vwrest.
 func (s *Server) GetDisc(ctx context.Context, request vwrest.GetDiscRequestObject) (vwrest.GetDiscResponseObject, error) {
 	workflowID := request.Uuid.String()
 
-	// Query the workflow state
-	resp, err := s.temporalClient.QueryWorkflow(ctx, workflowID, "", vwdisc.QueryGetState)
+	// Check if the workflow has completed and returned an error
+	describeResp, err := s.temporalClient.DescribeWorkflowExecution(ctx, workflowID, "")
+	if err != nil {
+		var notFoundErr *serviceerror.NotFound
+		if errors.As(err, &notFoundErr) {
+			return vwrest.GetDisc404JSONResponse{
+				Code:    "NOT_FOUND",
+				Message: fmt.Sprintf("workflow with UUID %s not found", workflowID),
+			}, nil
+		}
+		return vwrest.GetDisc500JSONResponse{
+			Code:    "INTERNAL_ERROR",
+			Message: fmt.Sprintf("failed to describe workflow: %v", err),
+		}, nil
+	}
+
+	// Check if workflow has completed with an error
+	workflowInfo := describeResp.GetWorkflowExecutionInfo()
+	if workflowInfo.Status != enums.WORKFLOW_EXECUTION_STATUS_RUNNING && workflowInfo.Status != enums.WORKFLOW_EXECUTION_STATUS_COMPLETED {
+		// Workflow ended with an error, was terminated, cancelled, etc.  Recover the error message.
+		workflow := s.temporalClient.GetWorkflow(ctx, workflowID, describeResp.WorkflowExecutionInfo.GetFirstRunId())
+		err := workflow.Get(ctx, nil)
+		errorMessage := fmt.Sprintf("workflow ended with status %s, error: %v", workflowInfo.Status.String(), err.Error())
+
+		return vwrest.GetDisc200JSONResponse{
+			Body: vwrest.DiscWorkflow{
+				Uuid:   request.Uuid,
+				Status: "failed",
+				Error:  &errorMessage,
+			},
+			Headers: vwrest.GetDisc200ResponseHeaders{
+				CacheControl: "no-cache, no-store, must-revalidate",
+				Pragma:       "no-cache",
+				Expires:      "0",
+			},
+		}, nil
+	}
+
+	// The workflow did not return an error, so query for the state.
+	resp, err := s.temporalClient.QueryWorkflow(ctx, workflowID, describeResp.WorkflowExecutionInfo.GetFirstRunId(), vwdisc.QueryGetState)
 	if err != nil {
 		var notFoundErr *serviceerror.NotFound
 		if errors.As(err, &notFoundErr) {

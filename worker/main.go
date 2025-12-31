@@ -41,6 +41,7 @@ func mainImpl() error {
 	// Register activities
 	w.RegisterActivity(vwactivity.RenameFile)
 	w.RegisterActivity(vwactivity.ListVideoFiles)
+	w.RegisterActivity(vwactivity.MkDir)
 
 	viClient, err := virest.NewClientWithResponses(fmt.Sprintf("%s:%d", config.VideoInfoHost, config.VideoInfoPort))
 	if err != nil {
