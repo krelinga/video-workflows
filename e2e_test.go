@@ -209,7 +209,7 @@ func dumpContainerLogs(t *testing.T, ctx context.Context, container testcontaine
 	}
 
 	// Split logs by newlines and get the last few lines
-	const maxLines = 20
+	const maxLines = 100
 	lines := strings.Split(strings.TrimSpace(string(logBytes)), "\n")
 	startIdx := 0
 	if len(lines) > maxLines {
