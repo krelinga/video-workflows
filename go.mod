@@ -7,7 +7,7 @@ require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/google/uuid v1.6.0
 	github.com/krelinga/video-info v0.0.2
-	github.com/krelinga/video-transcoder v0.0.6
+	github.com/krelinga/video-transcoder v0.0.7
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/testcontainers/testcontainers-go v0.40.0
 	go.temporal.io/api v1.54.0
