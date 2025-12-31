@@ -116,7 +116,8 @@ func TestEnd2End(t *testing.T) {
 	t.Logf("Created disc workflow with UUID: %s", workflowUUID)
 
 	// Poll GetDisc until status reaches "got_file_diagnostics" with 20 second timeout
-	timeout := time.After(20 * time.Second)
+	const timeoutSeconds = 20
+	timeout := time.After(timeoutSeconds * time.Second)
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
