@@ -101,6 +101,23 @@ func TestEnd2End(t *testing.T) {
 
 	t.Logf("Successfully connected to server at %s", serverHostPort)
 
+	// List the inbox, make sure we have the one disc we expect.
+	inboxResp, err := client.GetInboxWithResponse(ctx)
+	if err != nil {
+		t.Fatalf("failed to get inbox: %v", err)
+	}
+	if inboxResp.StatusCode() != 200 {
+		t.Fatalf("expected status 200, got %d: %s", inboxResp.StatusCode(), string(inboxResp.Body))
+	}
+	if len(inboxResp.JSON200.Paths) != 1 {
+		t.Fatalf("expected 1 disc in inbox, got %d", len(inboxResp.JSON200.Paths))
+	}
+	t.Logf("Inbox contents: %+v", inboxResp.JSON200.Paths)
+	const wantPath = "/nas/media/inbox/disk1"
+	if inboxResp.JSON200.Paths[0] != wantPath {
+		t.Fatalf("expected inbox path %s, got %s", wantPath, inboxResp.JSON200.Paths[0])
+	}
+
 	// Create a new Disc workflow with a UUID
 	workflowUUID := openapi_types.UUID(uuid.New())
 	createResp, err := client.CreateDiscWithResponse(ctx, vwrest.CreateDiscRequest{
@@ -515,7 +532,10 @@ func setup(t *testing.T, ctx context.Context, tempDir string) string {
 		},
 		Networks:       []string{networkName},
 		NetworkAliases: map[string][]string{networkName: {"server"}},
-		WaitingFor:     wait.ForLog("Starting server on :8080"),
+		Mounts: testcontainers.Mounts(
+			testcontainers.BindMount(tempDir, "/nas/media"),
+		),
+		WaitingFor: wait.ForLog("Starting server on :8080"),
 	}
 	serverContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: serverReq,
