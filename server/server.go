@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/krelinga/video-workflows/internal"
 	"github.com/krelinga/video-workflows/internal/vwactivity"
@@ -269,12 +271,24 @@ func (s *Server) GetDisc(ctx context.Context, request vwrest.GetDiscRequestObjec
 
 // GetInbox retrieves the list of disc paths in the inbox.
 func (s *Server) GetInbox(ctx context.Context, request vwrest.GetInboxRequestObject) (vwrest.GetInboxResponseObject, error) {
-	// TODO: Implement inbox path listing logic
-	// This should scan the inbox directory and return paths that haven't been processed yet
+	entries, err := os.ReadDir(s.config.InboxPath)
+	if err != nil {
+		return vwrest.GetInbox500JSONResponse{
+			Code:    "INTERNAL_ERROR",
+			Message: fmt.Sprintf("failed to read inbox directory: %v", err),
+		}, nil
+	}
+
+	var paths []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			paths = append(paths, filepath.Join(s.config.InboxPath, entry.Name()))
+		}
+	}
 
 	return vwrest.GetInbox200JSONResponse{
 		Body: vwrest.InboxResponse{
-			Paths: []string{},
+			Paths: paths,
 		},
 		Headers: vwrest.GetInbox200ResponseHeaders{
 			CacheControl: "no-cache, no-store, must-revalidate",
