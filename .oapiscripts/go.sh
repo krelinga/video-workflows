@@ -20,4 +20,4 @@ echo "==> Updating go.mod..."
 go mod tidy
 cd ../
 
-echo "==> Done! Generated code is in vtrest/"
+echo "==> Done! Generated code is in vwrest/"
