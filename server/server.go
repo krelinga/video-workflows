@@ -149,9 +149,8 @@ func (s *Server) CompleteTranscodeActivity(ctx context.Context, request vwrest.C
 
 // TranscodeActivityHeartbeat records a heartbeat for an in-progress Transcode activity.
 func (s *Server) TranscodeActivityHeartbeat(ctx context.Context, request vwrest.TranscodeActivityHeartbeatRequestObject) (vwrest.TranscodeActivityHeartbeatResponseObject, error) {
-	var progress vwactivity.TranscodeProgress
-	if request.Body.Progress != nil {
-		progress.Percentage = float64(*request.Body.Progress)
+	progress := vwactivity.TranscodeProgress{
+		Percentage: request.Body.Progress,
 	}
 	log.Printf("Recording heartbeat for Transcode activity with token %v: %+v", request.Body.Token, progress)
 

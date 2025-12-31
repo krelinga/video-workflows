@@ -227,7 +227,6 @@ components:
       type: object
       required:
         - token
-        - completionPercentage
       properties:
         token:
           type: string
@@ -248,7 +247,7 @@ components:
       type: object
       required:
         - token
-        - completionPercentage
+        - progress
       properties:
         token:
           type: string
@@ -262,6 +261,7 @@ components:
           example: 550e8400-e29b-41d4-a716-446655440000
         progress:
           type: number
+          format: double
           minimum: 0
           maximum: 100
           description: Completion percentage (0-100)
